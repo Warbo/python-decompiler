@@ -11,6 +11,8 @@ def square(num1, num2):
 	x = each(num1) + each(num2)
 	return num*num
 
+print square(1., -3.2)
+
 #x = 1 + 2 * 3 / 4 - 1
 #print str(x) + 'hel',
 #print 'lo'
@@ -47,6 +49,7 @@ thing :i ::= <quoted i>:q												=> q
            | <power i>:p												=> p
            | <return i>:r												=> r
            | <const i>:c												=> c
+           | <unarysub i>:u												=> u
            | <tuplenode i>:t											=> t
            | <listnode i>:l												=> l
            | <callfunc i>:c												=> c
@@ -189,6 +192,10 @@ divcontents :i ::= <token '(('> <thing i>:left <sep i>
 
 power :i ::= <token 'Power(('> <thing i>:o <sep i>
                               <thing i>:p <token '))'>					=> o+'**'+p
+
+
+
+unarysub :i ::= <token 'UnarySub('> <thing i>:t <token ')'>				=> '-'+t
 
 
 
