@@ -5,6 +5,10 @@ from pymeta.grammar import OMeta
 #tree = str(compiler.parseFile('transformer.py'))
 
 prog = """
+import StringIO
+from lxml.etree import Element, SubElement
+from threading import Thread
+
 def square(num1, num2):
 	def each(x):
 		return x**2
@@ -14,8 +18,8 @@ def square(num1, num2):
 print square(1., -3.2)
 
 #x = 1 + 2 * 3 / 4 - 1
-#print str(x) + 'hel',
-#print 'lo'
+print str(x) + 'hel',
+print 'lo'
 #a, b = x, y
 #c = (a, (x,y))
 #d = [a, b, c, (x, y)]
@@ -35,7 +39,8 @@ any ::= <thing 0>*:t													=> t
 
 
 
-thing :i ::= <quoted i>:q												=> q
+thing :i ::= <string i>:s												=> s
+           | <quoted i>:q												=> q
            | <module i>:m												=> m
            | <stmt i>:s													=> s
            | <assign i>:a												=> a
@@ -52,6 +57,8 @@ thing :i ::= <quoted i>:q												=> q
            | <unarysub i>:u												=> u
            | <tuplenode i>:t											=> t
            | <listnode i>:l												=> l
+           | <import i>:m												=> m
+           | <from i>:f													=> f
            | <callfunc i>:c												=> c
            | <printnl i>:p												=> p
            | <print i>:p												=> p
@@ -123,7 +130,7 @@ stmtlines :i ::= <token ']'>											=> ''
 
 function :i ::= <token 'Function('>
                 <thing i>:d <sep i>
-                <thing i>:n <sep i>
+                <quoted i>:n <sep i>
                 <token '['> <functionargs i>:a <sep i>
                 <thing i>:X <sep i>
                 <thing i>:Y <sep i>
@@ -132,6 +139,7 @@ function :i ::= <token 'Function('>
 
 functionargs :i ::= <token ']'>											=> ''
                   | <sep i> <functionargs i>:f							=> ', '+f
+                  | <quoted i>:q <functionargs i>:f						=> q+f
                   | <thing i>:t <functionargs i>:f						=> t+f
 
 
@@ -205,6 +213,10 @@ constcontents :i ::= <token '('> <thing i>:value <token ')'>			=> value
 
 
 
+string :i ::= <quoted i>:q												=> '\"""'+q+'\"""'
+
+
+
 callfunc :i ::= <token 'CallFunc'> <callfunccontents i>:c				=> c
 
 callfunccontents :i ::= <token '('> <thing i>:n <sep i>
@@ -222,13 +234,26 @@ discard :i ::= <token 'Discard'> <tuple i>								=> ''
 
 
 
-printnl :i ::= <token 'Printnl('> <list i>:l <sep i>
-                                  <thing i>:x <token ')'>				=> 'print('+''.join(l)+')'
+printnl :i ::= <token 'Printnl(['> <printcontents i>:p <sep i>
+                                  <thing i>:x <token ')'>				=> 'print('+p+')'
+
+printcontents :i ::= <token ']'>										=> ''
+                   | <quoted i>:q <printcontents i>:p					=> "'"+q+"'"+p
+                   | <sep i> <printcontents i>:p						=> ', '+p
+                   | <thing i>:t <printcontents i>:p					=> t+p
 
 
 
-print :i ::= <token 'Print('> <list i>:l <sep i>
-                              <thing i>:x <token ')'>					=> 'print('+''.join(l)+'),'
+print :i ::= <token 'Print(['> <printcontents i>:p <sep i>
+                              <thing i>:x <token ')'>					=> 'print('+p+'),'
+
+
+
+import ::= '#'
+
+
+
+from ::= '#'
 
 
 
