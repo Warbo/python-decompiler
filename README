@@ -6,17 +6,24 @@ Compiler module. Compiler takes valid Python code and builds an Astract
 Syntax Tree (AST) out of it, which is useful for compilation since an
 AST is easier to automatically manipulate than hand-written Python.
 
+For example, the Python code:
+
+x = y + 1
+
+is compiled to:
+
+Assign([AssName('x', 'OP_ASSIGN')], Add((Name('y'), Const(1))))
+
 This script takes an AST generated in such a way, and outputs pure
-Python code which matches the AST (ie. if you ran the generated code
-through the compiler module you'd get the same AST).
+Python code which matches the AST (ie. if given the AST above it would
+output the Python line above).
 
 This is achieved using PyMeta, a pattern matching library which uses
 Parsing Expression Grammars (PEGs), which are a more powerful
-alternative to regular expressions.
-
-Since this grammar is PyMeta based, it can be subclassed and overridden
-just like any Object in Python, allowing more interesting results than
-merely reconstructing Python; for example it could be used to translate
-from one language to another at the more convenient AST level, or to
-make existing code fit new requirements, such as replacing all attribute
-access with accessor and mutator methods.
+alternative to regular expressions. This means that the grammar can be
+subclassed and overridden just like any Object in Python, allowing more
+interesting results than merely reconstructing Python; for example it
+could be used to translate from one language to another at the more
+convenient AST level, or to make existing code fit new requirements,
+such as replacing all attribute access with accessor and mutator
+methods.
