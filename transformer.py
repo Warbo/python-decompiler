@@ -5,21 +5,21 @@ from pymeta.grammar import OMeta
 #tree = str(compiler.parseFile('transformer.py'))
 
 prog = """
-import StringIO
+import StringIO as Jeff
 from lxml.etree import Element, SubElement
 from threading import Thread
 
-def square(num1, num2):
-	def each(x):
-		return x**2
-	x = each(num1) + each(num2)
-	return num*num
+#def square(num1, num2):
+#	def each(x):
+#		return x**2
+#	x = each(num1) + each(num2)
+#	return num*num
 
-print square(1., -3.2)
+#print square(1., -3.2)
 
 #x = 1 + 2 * 3 / 4 - 1
-print str(x) + 'hel',
-print 'lo'
+#print str(x) + 'hel',
+#print 'lo'
 #a, b = x, y
 #c = (a, (x,y))
 #d = [a, b, c, (x, y)]
@@ -245,15 +245,30 @@ printcontents :i ::= <token ']'>										=> ''
 
 
 print :i ::= <token 'Print(['> <printcontents i>:p <sep i>
-                              <thing i>:x <token ')'>					=> 'print('+p+'),'
+                               <thing i>:x <token ')'>					=> 'print('+p+'),'
 
 
 
-import ::= '#'
+import :i ::= <token 'Import(['> <importcontents i>:i <token ')'>		=> i
+
+importcontents :i ::= <token ']'>										=> ''
+                    | <token '('> <quoted i>:m <sep i>
+                      <none i> <token ')' <importcontents i>:c			=> 'import '+m+c
+                    | <token '('> <quoted i>:m <sep i>
+                      <quoted i>:n <token ')'> <importcontents i>:c		=> 'import '+m+' as '+n+c
+                    | <sep i> <importcontents i>:c						=> \"""\n\"""+c
 
 
 
-from ::= '#'
+from :i ::= <token 'From('> <quoted i>:m <sep i> <token '['>
+            <fromcontents i>:c <sep i> <thing i>:X <token ')'>			=> 'from '+m+' import '+c
+
+fromcontents :i ::= <token ']'>											=> ''
+                  | <token '('> <quoted i>:m <sep i>
+                    <none i> <token ')'> <fromcontents i>:c				=> m+c
+                  | <token '('> <quoted i>:m <sep i>
+                    <quoted i>:n <token ')'> <fromcontents i>:c			=> m+' as '+n+c
+                  | <sep i> <fromcontents i>:c							=> ', '+c
 
 
 
