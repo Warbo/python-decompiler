@@ -2,28 +2,28 @@ import compiler
 
 from pymeta.grammar import OMeta
 
-#tree = str(compiler.parseFile('transformer.py'))
-
+# Example test program
 prog = """
-import StringIO as Jeff
-from lxml.etree import Element, SubElement
+import os
+import StringIO as sio
+from lxml.etree import Element as E, SubElement
 from threading import Thread
 
-#def square(num1, num2):
-#	def each(x):
-#		return x**2
-#	x = each(num1) + each(num2)
-#	return num*num
+def func(num1, num2):
+	def each(x):
+		return x**2
+	x = each(num1) + each(num2)
+	return x*x
 
-#print square(1., -3.2)
+print func(1., -3.2)
 
-#x = 1 + 2 * 3 / 4 - 1
-#print str(x) + 'hel',
-#print 'lo'
-#a, b = x, y
-#c = (a, (x,y))
-#d = [a, b, c, (x, y)]
-#e = d.sort()
+x = 1 + 2 * 3 / (4 - 1)
+print str(x) + 'hel',
+print 'lo'
+a, b = x, y
+c = (a, (x,y))
+d = [a, b, c, (x, y)]
+e = d.sort()
 """
 
 print prog
@@ -47,11 +47,11 @@ thing :i ::= <string i>:s												=> s
            | <assname i>:a												=> a
            | <asstuple i>:a												=> a
            | <name i>:n													=> n
-           | <add i>:a													=> a
-           | <sub i>:s													=> s
-           | <mul i>:m													=> m
-           | <div i>:d													=> d
-           | <power i>:p												=> p
+           | <add i>:a													=> '('+a+')'
+           | <sub i>:s													=> '('+s+')'
+           | <mul i>:m													=> '('+m+')'
+           | <div i>:d													=> '('+d+')'
+           | <power i>:p												=> '('+p+')'
            | <return i>:r												=> r
            | <const i>:c												=> c
            | <unarysub i>:u												=> u
@@ -249,11 +249,11 @@ print :i ::= <token 'Print(['> <printcontents i>:p <sep i>
 
 
 
-import :i ::= <token 'Import(['> <importcontents i>:i <token ')'>		=> i
+import :i ::= <token 'Import(['> <importcontents i>:c <token ')'>		=> c
 
 importcontents :i ::= <token ']'>										=> ''
                     | <token '('> <quoted i>:m <sep i>
-                      <none i> <token ')' <importcontents i>:c			=> 'import '+m+c
+                      <none i> <token ')'> <importcontents i>:c			=> 'import '+m+c
                     | <token '('> <quoted i>:m <sep i>
                       <quoted i>:n <token ')'> <importcontents i>:c		=> 'import '+m+' as '+n+c
                     | <sep i> <importcontents i>:c						=> \"""\n\"""+c
@@ -294,8 +294,8 @@ listnodecontents :i ::= ']'												=> ''
 
 
 
-getattr :i ::= <token 'Getattr('> <thing i>:o <sep i>
-                                  <thing i>:a <token ')'>				=> o+'.'+a
+getattr :i ::= <token 'Getattr('> <name i>:o <sep i>
+                                  <quoted i>:a <token ')'>				=> o+'.'+a
 
 
 
