@@ -1,0 +1,22 @@
+This was written by Chris Warburton (chriswarbo@gmail.com) and is
+released into the Public Domain.
+
+This Python script uses PyMeta to do the reverse of Python 2.x's
+Compiler module. Compiler takes valid Python code and builds an Astract
+Syntax Tree (AST) out of it, which is useful for compilation since an
+AST is easier to automatically manipulate than hand-written Python.
+
+This script takes an AST generated in such a way, and outputs pure
+Python code which matches the AST (ie. if you ran the generated code
+through the compiler module you'd get the same AST).
+
+This is achieved using PyMeta, a pattern matching library which uses
+Parsing Expression Grammars (PEGs), which are a more powerful
+alternative to regular expressions.
+
+Since this grammar is PyMeta based, it can be subclassed and overridden
+just like any Object in Python, allowing more interesting results than
+merely reconstructing Python; for example it could be used to translate
+from one language to another at the more convenient AST level, or to
+make existing code fit new requirements, such as replacing all attribute
+access with accessor and mutator methods.
