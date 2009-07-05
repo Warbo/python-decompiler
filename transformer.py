@@ -156,6 +156,8 @@ thing :i ::= <string i>:s												=> s
 
            | <subscript i>:s											=> s
 
+           | <tryexcept i>:t											=> t
+
            # "function" is a function definition, complete with code and
            # arguments
            | <function i>:f												=> f
@@ -194,60 +196,94 @@ thing :i ::= <string i>:s												=> s
            | <anything>:a												=> a
 
 
-# Numbers
-         # negative reals
-num :i ::= '-' <digit>+:whole '.' <digit>+:frac							=> '-'+''.join(whole)+'.'+''.join(frac)
-         # whole negative reals
-         | '-' <digit>+:whole '.'										=> '-'+''.join(whole)+'.'
-         # negative integers
-         | '-' <digit>+:whole											=> '-'+''.join(whole)
-         # positive reals
-         | <digit>+:whole '.' <digit>+:frac								=> ''.join(whole)+'.'+''.join(frac)
-         # positive whole reals and zero
-         | <digit>+:whole '.'											=> ''.join(whole)+'.'
-         # positive integers and zero
-         | <digit>+:whole												=> ''.join(whole)
+## The following match the AST nodes of the compiler module
+
+# Matches addition
+add :i ::= <token 'Add'> <addcontents i>:a								=> a
+
+addcontents :i ::= <token '(('> <thing i>:left <sep i>
+                                <thing i>:right <token '))'>			=> left + ' + ' + right
 
 
-# Comma separation
-sep :i ::= <token ', '>													=> ', '
+# Matches an and operator
+and :i ::= <token 'And(['> <andcontents i>:a <token ')'>				=> a
+
+andcontents :i ::= <token ']'>											=> ''
+                 | <sep i> <andcontents i>:a							=> ' and '+a
+                 | <thing i>:t <andcontents i>:a						=> '('+t+')'+a
 
 
-# Matches a value in quotes, returning the value with no quotes
-# (also see "string")
-quoted :i ::= <token "'"> <quoteval i>:q								=> q
-
-quoteval :i ::= <token "'">											=> ''
-              | <anything>:a <quoteval i>:q								=> a+q
+# Matches the assignment of an attribute								#################################
+assattr :i ::= ' '
 
 
-# Matches a series of comma-separated values in brackets
-tuple :i ::= <token '('> <tupleval i>:t									=> t
+# Matches binding a value to a variable name
+assname :i ::= <token 'AssName'> <assnamecontents i>:a					=> a
 
-tupleval :i ::= <token ')'>												=> ''
-              | <thing i>:t <tupleval i>:v								=> t+v
-
-
-# Matches a series of comma-separated values in square brackets
-list :i ::= <token '['> <listval i>:l									=> l
-
-listval :i ::= <token ']'>												=> ''
-             | <thing i>:t <listval i>:v								=> t+v
+assnamecontents :i ::= <token '('> <quoted i>:name <sep i>
+                                   <quoted i>:op <token ')'>			=> name
 
 
-# Matches Python's null object
-none :i ::= <token 'None'>												=> 'None'
+# Matches binding multiple values at once
+asstuple :i ::= <token 'AssTuple(['> <asstuplecontents i>:a <token ')'>	=> '('+a[:-2]+')'
+
+asstuplecontents :i ::= <token ']'>										=> ''
+                      | <sep i> <asstuplecontents i>:l					=> l
+                      | <thing i>:t <asstuplecontents i>:l				=> t+', '+l
 
 
-# Matches a pass statement
-pass :i ::= <token 'Pass()'>											=> 'pass'
+# Matches an assertion													###################################
+assert :i ::= ' '
 
 
-# Matches a Python module and its contents
-module :i ::= <token 'Module'> <modcontents i>:t						=> t
+# Matches a value binding
+assign :i ::= <token 'Assign(['> <assignleft i>:l <sep i>
+                                 <assignright i>:r <token ')'>			=> l+r
 
-modcontents :i ::= <token '('> <none i> <sep i> <tupleval i>:t			=> t
-                 | <token '('> <quoted i>:d <sep i> <tupleval i>:t		=> '""'+'"' + \"""\n\""" + d + \"""\n\""" + '""'+'"' + t
+assignleft :i ::= <token ']'>											=> ''
+                | <sep i> <assignleft i>:l								=> l
+                | <thing i>:t <assignleft i>:l							=> t+' = '+l
+
+assignright :i ::= <thing i>:t											=> t
+
+
+# Matches a combined operation and assign, such as "+=" or "/="
+augassign :i ::= <token 'AugAssign('> <thing i>:l <sep i>
+                                      <quoted i>:o <sep i>
+                                      <thing i>:r <token ')'>			=> l+' '+o+' '+r
+
+
+#																		####################################
+backquote :i ::= ' '
+
+
+#																		#####################################
+bitand :i ::= ' '
+
+
+#																		####################################
+bitor :i ::= ' '
+
+
+#																		###############################
+bitxor :i ::= ' '
+
+
+#																		####################################
+break :i ::= ' '
+
+
+# Matches a function call
+callfunc :i ::= <token 'CallFunc'> <callfunccontents i>:c				=> c
+
+callfunccontents :i ::= <token '('> <thing i>:n <sep i>
+                                    <token '['> <callfuncargs i>:a <sep i>
+                                    <thing i>:three <sep i>
+                                    <thing i>:four <token ')'>			=> n+'('+a+')'
+
+callfuncargs :i ::= <token ']'>											=> ''
+                  | <sep i> <callfuncargs i>:a							=> ', '+a
+                  | <thing i>:t <callfuncargs i>:a						=> t+a
 
 
 # Matches a Python class
@@ -260,13 +296,82 @@ classcontents :i ::= <token ']'>										=> ''
                    | <thing i>:t <classcontents i>:c					=> t+c
 
 
-# Matches a series of Python commands
-stmt :i ::= <token 'Stmt'> <stmtcontents i>:s							=> s
+# Matches comparisons
+compare :i ::= <token 'Compare('> <thing i>:l <sep i>
+               <token '['> <comparecontents i>:r <token ')'>			=> '('+l+') '+r
 
-stmtcontents :i ::= <token '(['> <stmtlines i>:s <token ')'>			=> s
+comparecontents :i ::= <token ']'>										=> ''
+                     | <sep i> <comparecontents i>:r					=> r
+                     | <token '('> <quoted i>:c <sep i> <thing i>:r
+                       <token ')'> <comparecontents i>:e				=> c+' ('+r+') '+e
 
-stmtlines :i ::= <token ']'>											=> ''
-               | <thing i>:t <stmtlines i>:s							=> i*'\t' + t + \"""\n\""" + s
+
+# Matches constants
+const :i ::= <token 'Const'> <constcontents i>:c						=> c
+
+constcontents :i ::= <token '('> <thing i>:value <token ')'>			=> value
+
+
+#																		#######################################
+continue :i ::= ' '
+
+
+#																		###################################
+decorators :i ::= ' '
+
+
+# Matches a dictionary datastructure
+dict :i ::= <token 'Dict(['> <dictcontents i>:d <token ')'>				=> '{'+d+'}'
+
+dictcontents :i ::= <token ']'>											=> ''
+                  | <sep i> <dictcontents i>:d							=> ', '+d
+                  | <token '('> <thing i>:k <sep i>
+                                <thing i>:v <token ')'>
+                                <dictcontents i>:d						=> k+':'+v+d
+
+
+# Matches possibly redundant commands
+discard :i ::= <token 'Discard('> <thing i>:t <token ')'>				=> t
+
+
+# Matches division
+div :i ::= <token 'Div'> <divcontents i>:d								=> d
+
+divcontents :i ::= <token '(('> <thing i>:left <sep i>
+                                <thing i>:right <token '))'>			=> left + ' / ' + right
+
+
+#																		###################################
+ellipsis :i ::= ' '
+
+
+#																		##################################
+expression :i ::= ' '
+
+
+#																		###################################
+exec :i ::= ' '
+
+
+#																		###################################
+floordiv :i ::= ' '
+
+
+# Matches for loops
+for :i ::= <token 'For('> <assname i>:a <sep i> <thing i>:c <sep i>
+                          <stmt i+1>:s <sep i> <none i> <token ')'>		=> 'for '+a+' in '+c+\""":\n\"""+s
+
+
+# Matches namespace injections
+from :i ::= <token 'From('> <quoted i>:m <sep i> <token '['>
+            <fromcontents i>:c <sep i> <thing i>:X <token ')'>			=> 'from '+m+' import '+c
+
+fromcontents :i ::= <token ']'>											=> ''
+                  | <token '('> <quoted i>:m <sep i>
+                    <none i> <token ')'> <fromcontents i>:c				=> m+c
+                  | <token '('> <quoted i>:m <sep i>
+                    <quoted i>:n <token ')'> <fromcontents i>:c			=> m+' as '+n+c
+                  | <sep i> <fromcontents i>:c							=> ', '+c
 
 
 # Matches a Python function definition
@@ -285,6 +390,32 @@ functionargs :i ::= <token ']'>											=> ''
                   | <thing i>:t <functionargs i>:f						=> t+f
 
 
+#																		################################
+genexpr :i ::= ' '
+
+
+#																		##############################
+genexprfor :i ::= ' '
+
+
+#																		################################
+genexprif :i ::= ' '
+
+
+#																		##############################
+genexprinner :i ::= ' '
+
+
+# Matches attribute lookup
+getattr :i ::= <token 'Getattr('> <thing i>:o <sep i>
+                                  <quoted i>:a <token ')'>				=> o+'.'+a
+
+
+#																		##########################
+global :i ::= ' '
+
+
+#If([(Compare(Name('keyPressed'), [('==', Const('space'))]), Stmt([AugAssign(Subscript(Name('velocity'), 'OP_APPLY', [Const(0)]), '+=', Const(10)), AugAssign(Subscript(Name('velocity'), 'OP_APPLY', [Const(0)]), '*=', Const(50)), AugAssign(Subscript(Name('velocity'), 'OP_APPLY', [Const(1)]), '+=', Const(10)), AugAssign(Subscript(Name('velocity'), 'OP_APPLY', [Const(1)]), '*=', Const(50))]))], None)
 # Matches an if statement
 if :i ::= <token 'If([('> <thing i>:c <sep i>
                          <stmt i+1>:s <token ')'> <sep i>
@@ -299,151 +430,6 @@ else :i ::= <none i>													=> ''
           | <stmt i+1>:s												=> \"""else:\n\"""+s
 
 
-while :i ::= <token 'While('> <thing i>:t <sep i>
-                              <stmt i+1>:s <sep i>
-                              <thing i> <token ')'>						=> 'while '+t+\""":\n\"""+s
-
-
-for :i ::= <token 'For('> <assname i>:a <sep i> <thing i>:c <sep i>
-                          <stmt i+1>:s <sep i> <none i> <token ')'>		=> 'for '+a+' in '+c+\""":\n\"""+s
-
-
-# Matches a value binding
-assign :i ::= <token 'Assign(['> <assignleft i>:l <sep i>
-                                 <assignright i>:r <token ')'>			=> l+r
-
-assignleft :i ::= <token ']'>											=> ''
-                | <sep i> <assignleft i>:l								=> l
-                | <thing i>:t <assignleft i>:l							=> t+' = '+l
-
-assignright :i ::= <thing i>:t											=> t
-
-
-# Matches binding a value to a variable name
-assname :i ::= <token 'AssName'> <assnamecontents i>:a					=> a
-
-assnamecontents :i ::= <token '('> <quoted i>:name <sep i>
-                                   <quoted i>:op <token ')'>			=> name
-
-
-# Matches binding multiple values at once
-asstuple :i ::= <token 'AssTuple(['> <asstuplecontents i>:a <token ')'>	=> '('+a[:-2]+')'
-
-asstuplecontents :i ::= <token ']'>										=> ''
-                      | <sep i> <asstuplecontents i>:l					=> l
-                      | <thing i>:t <asstuplecontents i>:l				=> t+', '+l
-
-
-#AugAssign(Subscript(Name('velocity'), 'OP_APPLY', [Const(0)]), '*=', Const(50))
-augassign :i ::= <token 'AugAssign('> <thing i>:l <sep i>
-                                      <quoted i>:o <sep i>
-                                      <thing i>:r <token ')'>			=> l+' '+o+' '+r
-
-
-# Matches a not operation
-not :i ::= <token 'Not('> <thing i>:t <token ')'>						=> 'not ('+t+')'
-
-
-and :i ::= <token 'And(['> <andcontents i>:a <token ')'>				=> a
-
-andcontents :i ::= <token ']'>											=> ''
-                 | <sep i> <andcontents i>:a							=> ' and '+a
-                 | <thing i>:t <andcontents i>:a						=> '('+t+')'+a
-
-or :i ::= <token 'Or(['> <orcontents i>:o <token ')'>					=> o
-
-orcontents :i ::= <token ']'>											=> ''
-                | <sep i> <orcontents i>:o								=> ' or '+o
-                | <thing i>:t <orcontents i>:o							=> '('+t+')'+o
-
-dict :i ::= <token 'Dict(['> <dictcontents i>:d <token ')'>				=> '{'+d+'}'
-
-dictcontents :i ::= <token ']'>											=> ''
-                  | <sep i> <dictcontents i>:d							=> ', '+d
-                  | <token '('> <thing i>:k <sep i>
-                                <thing i>:v <token ')'>
-                                <dictcontents i>:d						=> k+':'+v+d
-
-# Matches addition
-add :i ::= <token 'Add'> <addcontents i>:a								=> a
-
-addcontents :i ::= <token '(('> <thing i>:left <sep i>
-                                <thing i>:right <token '))'>			=> left + ' + ' + right
-
-
-# Matches subtraction
-sub :i ::= <token 'Sub'> <subcontents i>:s								=> s
-
-subcontents :i ::= <token '(('> <thing i>:left <sep i>
-                                <thing i>:right <token '))'>			=> left + ' - ' + right
-
-
-# Matches multiplication
-mul :i ::= <token 'Mul'> <mulcontents i>:m								=> m
-
-mulcontents :i ::= <token '(('> <thing i>:left <sep i>
-                                <thing i>:right <token '))'>			=> left + ' * ' + right
-
-
-# Matches division
-div :i ::= <token 'Div'> <divcontents i>:d								=> d
-
-divcontents :i ::= <token '(('> <thing i>:left <sep i>
-                                <thing i>:right <token '))'>			=> left + ' / ' + right
-
-
-# Matches exponentiation
-power :i ::= <token 'Power(('> <thing i>:o <sep i>
-                              <thing i>:p <token '))'>					=> o+'**'+p
-
-
-# Matches negative values
-unarysub :i ::= <token 'UnarySub('> <thing i>:t <token ')'>				=> '-'+t
-
-
-# Matches constants
-const :i ::= <token 'Const'> <constcontents i>:c						=> c
-
-constcontents :i ::= <token '('> <thing i>:value <token ')'>			=> value
-
-
-# Matches a value in quotes, returning the value and the quotes. For
-# a rule which doesn't return the quotes see "quoted"
-string :i ::= <quoted i>:q												=> '\"""'+q+'\"""'
-
-
-# Matches a function call
-callfunc :i ::= <token 'CallFunc'> <callfunccontents i>:c				=> c
-
-callfunccontents :i ::= <token '('> <thing i>:n <sep i>
-                                    <token '['> <callfuncargs i>:a <sep i>
-                                    <thing i>:three <sep i>
-                                    <thing i>:four <token ')'>			=> n+'('+a+')'
-
-callfuncargs :i ::= <token ']'>											=> ''
-                  | <sep i> <callfuncargs i>:a							=> ', '+a
-                  | <thing i>:t <callfuncargs i>:a						=> t+a
-
-Discard()
-# Matches possibly redundant commands
-discard :i ::= <token 'Discard('> <thing i>:t <token ')'>				=> t
-
-
-# Matches print
-printnl :i ::= <token 'Printnl(['> <printcontents i>:p <sep i>
-                                  <thing i>:x <token ')'>				=> 'print('+p+')'
-
-printcontents :i ::= <token ']'>										=> ''
-                   | <quoted i>:q <printcontents i>:p					=> "'"+q+"'"+p
-                   | <sep i> <printcontents i>:p						=> ', '+p
-                   | <thing i>:t <printcontents i>:p					=> t+p
-
-
-# Matches print with no newline
-print :i ::= <token 'Print(['> <printcontents i>:p <sep i>
-                               <thing i>:x <token ')'>					=> 'print('+p+'),'
-
-
 # Matches module imports
 import :i ::= <token 'Import(['> <importcontents i>:c <token ')'>		=> c
 
@@ -455,30 +441,20 @@ importcontents :i ::= <token ']'>										=> ''
                     | <sep i> <importcontents i>:c						=> \"""\n\"""+c
 
 
-# Matches namespace injections
-from :i ::= <token 'From('> <quoted i>:m <sep i> <token '['>
-            <fromcontents i>:c <sep i> <thing i>:X <token ')'>			=> 'from '+m+' import '+c
-
-fromcontents :i ::= <token ']'>											=> ''
-                  | <token '('> <quoted i>:m <sep i>
-                    <none i> <token ')'> <fromcontents i>:c				=> m+c
-                  | <token '('> <quoted i>:m <sep i>
-                    <quoted i>:n <token ')'> <fromcontents i>:c			=> m+' as '+n+c
-                  | <sep i> <fromcontents i>:c							=> ', '+c
+#																		############################
+import :i ::= ' '
 
 
-# Matches a variable name
-name :i ::= <token 'Name'> <namecontents i>:n							=> n
-
-namecontents :i ::= <token '('> <quoted i>:n <token ')'>				=> n
+#																		################################
+keyword :i ::= ' '
 
 
-# Matches a tuple datastructure
-tuplenode :i ::= <token 'Tuple(['> <tuplenodecontents i>:t ')'			=> '('+t[:-2]+')'
+#																		############################
+lambda :i ::= ' '
 
-tuplenodecontents :i ::= ']'											=> ''
-                       | <sep i> <tuplenodecontents i>:t				=> t
-                       | <thing i>:t <tuplenodecontents i>:c			=> t+', '+c
+
+#																		##########################
+leftshift :i ::= ' '
 
 
 # Matches a list datastructure
@@ -489,28 +465,215 @@ listnodecontents :i ::= ']'												=> ''
                       | <thing i>:t <listnodecontents i>:l				=> t+', '+l
 
 
-# Matches attribute lookup
-getattr :i ::= <token 'Getattr('> <thing i>:o <sep i>
-                                  <quoted i>:a <token ')'>				=> o+'.'+a
+#																		###############################
+listcomp :i ::= ' '
+
+
+#																		##############################
+listcompfor :i ::= ' '
+
+
+#																		###########################
+listcompif :i ::= ' '
+
+
+#																		###########################
+mod :i ::= ' '
+
+
+# Matches a Python module and its contents
+module :i ::= <token 'Module'> <modcontents i>:t						=> t
+
+modcontents :i ::= <token '('> <none i> <sep i> <tupleval i>:t			=> t
+                 | <token '('> <quoted i>:d <sep i> <tupleval i>:t		=> '""'+'"' + \"""\n\""" + d + \"""\n\""" + '""'+'"' + t
+
+
+# Matches multiplication
+mul :i ::= <token 'Mul'> <mulcontents i>:m								=> m
+
+mulcontents :i ::= <token '(('> <thing i>:left <sep i>
+                                <thing i>:right <token '))'>			=> left + ' * ' + right
+
+
+# Matches a variable name
+name :i ::= <token 'Name'> <namecontents i>:n							=> n
+
+namecontents :i ::= <token '('> <quoted i>:n <token ')'>				=> n
+
+
+# Matches a not operation
+not :i ::= <token 'Not('> <thing i>:t <token ')'>						=> 'not ('+t+')'
+
+
+# Matches an or operator
+or :i ::= <token 'Or(['> <orcontents i>:o <token ')'>					=> o
+
+orcontents :i ::= <token ']'>											=> ''
+                | <sep i> <orcontents i>:o								=> ' or '+o
+                | <thing i>:t <orcontents i>:o							=> '('+t+')'+o
+
+
+# Matches a pass statement
+pass :i ::= <token 'Pass()'>											=> 'pass'
+
+
+# Matches exponentiation
+power :i ::= <token 'Power(('> <thing i>:o <sep i>
+                              <thing i>:p <token '))'>					=> o+'**'+p
+
+# Matches print with no newline
+print :i ::= <token 'Print(['> <printcontents i>:p <sep i>
+                               <thing i>:x <token ')'>					=> 'print('+p+'),'
+
+printcontents :i ::= <token ']'>										=> ''
+                   | <quoted i>:q <printcontents i>:p					=> "'"+q+"'"+p
+                   | <sep i> <printcontents i>:p						=> ', '+p
+                   | <thing i>:t <printcontents i>:p					=> t+p
+
+
+# Matches print
+printnl :i ::= <token 'Printnl(['> <printcontents i>:p <sep i>
+                                  <thing i>:x <token ')'>				=> 'print('+p+')'
+
+
+#																		##########################
+raise :i ::= ' '
 
 
 # Matches return statements
 return :i ::= <token 'Return('> <thing i>:t <token ')'>					=> 'return '+t
 
-# Matches comparisons
-compare :i ::= <token 'Compare('> <thing i>:l <sep i>
-               <token '['> <comparecontents i>:r <token ')'>			=> '('+l+') '+r
 
-comparecontents :i ::= <token ']'>										=> ''
-                     | <sep i> <comparecontents i>:r					=> r
-                     | <token '('> <quoted i>:c <sep i> <thing i>:r
-                       <token ')'> <comparecontents i>:e				=> c+' ('+r+') '+e
+#																		#########################
+rightshift :i ::= ' '
 
 
+#																		#########################
+slice :i ::= ' '
+
+
+#																		########################
+sliceobj :i ::= ' '
+
+
+# Matches a series of Python commands
+stmt :i ::= <token 'Stmt'> <stmtcontents i>:s							=> s
+
+stmtcontents :i ::= <token '(['> <stmtlines i>:s <token ')'>			=> s
+
+stmtlines :i ::= <token ']'>											=> ''
+               | <thing i>:t <stmtlines i>:s							=> i*'\t' + t + \"""\n\""" + s
+
+
+# Matches subtraction
+sub :i ::= <token 'Sub'> <subcontents i>:s								=> s
+
+subcontents :i ::= <token '(('> <thing i>:left <sep i>
+                                <thing i>:right <token '))'>			=> left + ' - ' + right
+
+
+# Matches indexing of an object (eg. mylist[5])
 subscript :i ::= <token 'Subscript('> <thing i>:l <sep i>
                  <quoted i> <sep i>
                  <token '['> <thing i>:s <token '])'>					=> l+'['+s+']'
 
+
+#																		##########################
+tryexcept :i ::= <token 'TryExcept('> <stmt i+1>:t <sep i> <token '['>
+                 <trycontents i>:e <sep i> <none i> <token ')'>			=> \"""try:\n\"""+t+e
+
+trycontents :i ::= <token ']'>											=> ''
+                 | <token '('> <none i> <sep i> <none i> <sep i>
+                   <stmt i+1>:e <token ')'> <trycontents i>:c			=> \"""except:\n\"""+e+c
+                 | <token '('> <thing i>:x <sep i> <none i>:y <sep i>
+                   <stmt i+1>:e <token ')'> <trycontents i>:c			=> 'except '+x+\""":\n\"""+e+c
+                 | <token '('> <thing i>:x <sep i> <thing i>:y <sep i>
+                   <stmt i+1>:e <token ')'> <trycontents i>:c			=> 'except '+x+', '+y+\""":\n\"""+e+c
+
+
+#																		#############################
+tryfinally :i ::= ' '
+
+
+# Matches a tuple datastructure
+tuplenode :i ::= <token 'Tuple(['> <tuplenodecontents i>:t ')'			=> '('+t[:-2]+')'
+
+tuplenodecontents :i ::= ']'											=> ''
+                       | <sep i> <tuplenodecontents i>:t				=> t
+                       | <thing i>:t <tuplenodecontents i>:c			=> t+', '+c
+
+
+#																		###################
+unaryadd :i ::= ' '
+
+
+# Matches negative values
+unarysub :i ::= <token 'UnarySub('> <thing i>:t <token ')'>				=> '-'+t
+
+
+# Matches while loops
+while :i ::= <token 'While('> <thing i>:t <sep i>
+                              <stmt i+1>:s <sep i>
+                              <thing i> <token ')'>						=> 'while '+t+\""":\n\"""+s
+
+
+#																		#######################
+with :i ::= ' '
+
+
+#																		#########################
+yield :i ::= ' '
+
+
+## The following match common value formats used in the above
+
+# Matches numbers
+num :i ::= '-' <digit>+:whole '.' <digit>+:frac							=> '-'+''.join(whole)+'.'+''.join(frac)
+         # whole negative reals
+         | '-' <digit>+:whole '.'										=> '-'+''.join(whole)+'.'
+         # negative integers
+         | '-' <digit>+:whole											=> '-'+''.join(whole)
+         # positive reals
+         | <digit>+:whole '.' <digit>+:frac								=> ''.join(whole)+'.'+''.join(frac)
+         # positive whole reals and zero
+         | <digit>+:whole '.'											=> ''.join(whole)+'.'
+         # positive integers and zero
+         | <digit>+:whole												=> ''.join(whole)
+
+
+# Matches comma separation
+sep :i ::= <token ', '>													=> ', '
+
+
+# Matches a value in quotes, returning the value with no quotes
+# (also see "string")
+quoted :i ::= <token "'"> <quoteval i>:q								=> q
+
+quoteval :i ::= <token "'">												=> ''
+              | <anything>:a <quoteval i>:q								=> a+q
+
+
+# Matches a value in quotes, returning the value and the quotes. For
+# a rule which doesn't return the quotes see "quoted"
+string :i ::= <quoted i>:q												=> '\"""'+q+'\"""'
+
+
+# Matches a series of comma-separated values in brackets
+tuple :i ::= <token '('> <tupleval i>:t									=> t
+
+tupleval :i ::= <token ')'>												=> ''
+              | <thing i>:t <tupleval i>:v								=> t+v
+
+
+# Matches a series of comma-separated values in square brackets
+list :i ::= <token '['> <listval i>:l									=> l
+
+listval :i ::= <token ']'>												=> ''
+             | <thing i>:t <listval i>:v								=> t+v
+
+
+# Matches Python's null object
+none :i ::= <token 'None'>												=> 'None'
 """
 
 g = OMeta.makeGrammar(strip_comments(gram), {})
