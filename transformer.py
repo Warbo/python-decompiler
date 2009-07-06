@@ -577,12 +577,15 @@ subscript :i ::= <token 'Subscript('> <thing i>:l <sep i>
                  <quoted i> <sep i>
                  <token '['> <thing i>:s <token '])'>					=> l+'['+s+']'
 
-
-#																		##########################
+#TryExcept(Stmt([Printnl([Const('x')], None)]), [(Name('SyntaxError'), None, Stmt([Pass()])), (Name('ParseError'), None, Stmt([Printnl([Const('y')], None)])), (None, None, Stmt([Printnl([Const('z')], None)]))], None)
+# Matches "try:" "except:" statements
 tryexcept :i ::= <token 'TryExcept('> <stmt i+1>:t <sep i> <token '['>
                  <trycontents i>:e <sep i> <none i> <token ')'>			=> \"""try:\n\"""+t+e
+               | <token 'TryExcept('> <stmt i+1>:t <sep i> <token '['>
+                 <trycontents i>:e <sep i> <stmt i+1>:s <token ')'>		=> \"""try:\n\"""+t+e+\"""\n\"""+(i*'\t')+\"""else:\n\"""+s
 
 trycontents :i ::= <token ']'>											=> ''
+                 | <sep i> <trycontents i>:t							=> t
                  | <token '('> <none i> <sep i> <none i> <sep i>
                    <stmt i+1>:e <token ')'> <trycontents i>:c			=> \"""except:\n\"""+e+c
                  | <token '('> <thing i>:x <sep i> <none i>:y <sep i>
