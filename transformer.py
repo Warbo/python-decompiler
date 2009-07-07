@@ -21,6 +21,19 @@ def strip_comments(s):
 				r = r + character
 	return r
 
+def match_args(names, values):
+	names.reverse()
+	values.reverse()
+	matched = []
+	for i in range(len(names)):
+		try:
+			matched.append(names[i]+'='+values[i])
+		except:
+			matched.append(names[i])
+	matched.reverse()
+	out = ', '.join(matched)
+	return out
+
 gram = """
 # This grammar matches against the ASTs produced by Python 2.x's
 # compiler module. It produces Python code to match the AST.
@@ -46,17 +59,16 @@ any ::= <thing 0>*:t													=> ''.join(t)
 # quotes (to get an output without the quotes used "quoted")
 thing :i ::= <string i>:s												=> s
 
-           # "module" is a Python module, ie. a file of Python code
-           | <module i>:m												=> m
+           ## The following are AST nodes
 
-           # "class" is a Python class
-           | <class i>:c												=> c
+           # "add" is addition
+           | <add i>:a													=> '('+a+')'
 
-           # "stmt" is a statement, ie. a list of commands
-           | <stmt i>:s													=> s
+           # "and" matches an and operation
+           | <and i>:a													=> a
 
-           # "assign" is the binding of a value to something
-           | <assign i>:a												=> a
+           # "assattr" matches attribute binding
+           | <assattr i>:a
 
            # "assname" is the binding of a value to a variable name
            | <assname i>:a												=> a
@@ -64,107 +76,215 @@ thing :i ::= <string i>:s												=> s
            # "asstuple" is the binding of members of one tuple to another
            | <asstuple i>:a												=> a
 
+           # "assert" is an assertion (mainly used for debugging)
+           | <assert i>:a												=> a
+
+           # "assign" is the binding of a value to something
+           | <assign i>:a												=> a
+
+           # "augassign" matches an increment, decrement, etc.
            | <augassign i>:a											=> a
 
-           # "name" calls a variable
-           | <name i>:n													=> n
+           #
+           | <backquote i>:b											=> b
 
-           # "if" matches if statements
-           | <if i>:f													=> f
+           #
+           | <bitand i>:b												=> b
 
-           | <for i>:f													=> f
+           #
+           | <bitor i>:b												=> b
 
-           | <while i>:w												=> w
+           #
+           | <bitxor i>:b												=> b
 
-           # "not" matches a not operation
-           | <not i>:n													=> n
+           #
+           | <break i>:b												=> b
 
-           # "and" matches an and operation
-           | <and i>:a													=> a
+           # "callfunc" is a function call, complete with arguments
+           | <callfunc i>:c												=> c
 
-           # "or" matches an or operation
-           | <or i>:o													=> o
+           # "class" is a Python class
+           | <class i>:c												=> c
 
-           # "dict" matches a Python dictionary datastructure
-           | <dict i>:d													=> d
-
-           # "pass" matches a pass statement
-           | <pass i>:p													=> p
-
-           ## The following all end up with surrounding brackets. It's
-           ## not pretty, but it does the job for now.
-
-           # "add" is addition
-           | <add i>:a													=> '('+a+')'
-
-           # "sub" is subtraction
-           | <sub i>:s													=> '('+s+')'
-
-           # "mul" is multiplication
-           | <mul i>:m													=> '('+m+')'
-
-           # "div" is division
-           | <div i>:d													=> '('+d+')'
-
-           # "power" is exponentiation
-           | <power i>:p												=> '('+p+')'
-
-           # "return" is a return statement
-           | <return i>:r												=> r
+           # "compare" matches tests for (in)equality
+           | <compare i>:c												=> c
 
            # "const" is a constant value
            | <const i>:c												=> c
 
-           # "unarysub" negates a value (eg. unary sub of 1 is -1)
-           | <unarysub i>:u												=> u
+           #
+           | <continue i>:c												=> c
 
-           # "tuplenode" is a tuple in the original code (not to be
-           # confused with "tuple" which is a series of values in
-           # brackets)
-           | <tuplenode i>:t											=> t
+           #
+           | <decorators i>:d											=> d
+
+           # "dict" matches a Python dictionary datastructure
+           | <dict i>:d													=> d
+
+           # "discard" wraps commands the return values of which are not
+           # used anywhere else in the program
+           | <discard i>:d												=> d
+
+           # "div" is division
+           | <div i>:d													=> '('+d+')'
+
+           #
+           | <ellipsis i>:e												=> e
+
+           #
+           | <expression i>:e											=> e
+
+           #
+           | <exec i>:e													=> e
+
+           #
+           | <floordiv i>:f												=> f
+
+           # "for" matches a for loop
+           | <for i>:f													=> f
+
+           # "from" imports specified things from one module into the
+           # current namespace, renaming them if instructed to
+           | <from i>:f													=> f
+
+           # "function" is a function definition, complete with code and
+           # arguments
+           | <function i>:f												=> f
+
+           #
+           | <genexpr i>:g												=> g
+
+           #
+           | <genexprfor i>:g											=> g
+
+           #
+           | <genexprif i>:g											=> g
+
+           #
+           | <genexprinner i>:g											=> g
+
+           # "getattr" gets a value from some namespace (for example a
+           # property of an object)
+           | <getattr i>:a												=> a
+
+           #
+           | <global i>:g												=> g
+
+           # "if" matches if statements
+           | <if i>:f													=> f
+
+           # "import" imports modules into the current namespace, and
+           # possibly renames them if instructed to
+           | <import i>:m												=> m
+
+           #
+           | <keyword i>:k												=> k
+
+           #
+           | <lambda i>:l												=> l
+
+           #
+           | <leftshift i>:l											=> l
 
            # "listnode" is a list in the original code (not to be
            # confused with "list" which is a series of values in square
            # brackets)
            | <listnode i>:l												=> l
 
-           # "import" imports modules into the current namespace, and
-           # possibly renames them if instructed to
-           | <import i>:m												=> m
+           #
+           | <listcomp i>:l												=> l
 
-           # "from" imports specified things from one module into the
-           # current namespace, renaming them if instructed to
-           | <from i>:f													=> f
+           #
+           | <listcompfor i>:l											=> l
 
-           # "callfunc" is a function call, complete with arguments
-           | <callfunc i>:c												=> c
+           #
+           | <listcompif i>:l											=> l
 
-           # "printnl" is a normal print statement, ending the line and
-           # flushing the output buffer
-           | <printnl i>:p												=> p
+           #
+           | <mod i>:m													=> '('+m+')'
+
+           # "module" is a Python module, ie. a file of Python code
+           | <module i>:m												=> m
+
+           # "mul" is multiplication
+           | <mul i>:m													=> '('+m+')'
+
+           # "name" calls a variable
+           | <name i>:n													=> n
+
+           # "not" matches a not operation
+           | <not i>:n													=> n
+
+           # "or" matches an or operation
+           | <or i>:o													=> o
+
+           # "pass" matches a pass statement
+           | <pass i>:p													=> p
+
+           # "power" is exponentiation
+           | <power i>:p												=> '('+p+')'
 
            # "print" is a print statement followed by a comma, which
            # prevents the buffer from flushing and doesn't end in a new
            # line
            | <print i>:p												=> p
 
-           # "getattr" gets a value from some namespace (for example a
-           # property of an object)
-           | <getattr i>:a												=> a
+           # "printnl" is a normal print statement, ending the line and
+           # flushing the output buffer
+           | <printnl i>:p												=> p
 
-           | <compare i>:c												=> c
+           #
+           | <raise i>:r												=> r
 
+           # "return" is a return statement
+           | <return i>:r												=> r
+
+           #
+           | <rightshift i>:r											=> r
+
+           #
+           | <slice i>:s												=> s
+
+           #
+           | <sliceobj i>:s												=> s
+
+           # "stmt" is a statement, ie. a list of commands
+           | <stmt i>:s													=> s
+
+           # "sub" is subtraction
+           | <sub i>:s													=> '('+s+')'
+
+           # "subscript" matches object indexing (such as "mylist[2]")
            | <subscript i>:s											=> s
 
+           # "tryexcept" matches "try" statements and their accompanying
+           # "except" and "else" statements
            | <tryexcept i>:t											=> t
 
-           # "function" is a function definition, complete with code and
-           # arguments
-           | <function i>:f												=> f
+           #
+           | <tryfinally i>:t											=> t
 
-           # "discard" wraps commands which have no effect on the
-           # program
-           | <discard i>:d												=> d
+           # "tuplenode" is a tuple in the original code (not to be
+           # confused with "tuple" which is a series of values in
+           # brackets)
+           | <tuplenode i>:t											=> t
+
+           #
+           | <unaryadd i>:u												=> u
+
+           # "unarysub" negates a value (eg. unary sub of 1 is -1)
+           | <unarysub i>:u												=> u
+
+           # "while" matches a while loop
+           | <while i>:w												=> w
+
+           #
+           | <with i>:w													=> w
+
+           #
+           | <yield i>:y												=> y
+
+           ## The following are common data formats found in the AST
 
            # "sep" is a comma followed by a space, used as a separator
            # in tuples and lists
@@ -232,8 +352,9 @@ asstuplecontents :i ::= <token ']'>										=> ''
                       | <thing i>:t <asstuplecontents i>:l				=> t+', '+l
 
 
-# Matches an assertion													###################################
-assert :i ::= ' '
+# Matches an assertion
+assert :i ::= <token 'Assert('> <thing i>:t <sep i>
+                                <none i> <token ')'>					=> 'assert '+t
 
 
 # Matches a value binding
@@ -373,22 +494,26 @@ fromcontents :i ::= <token ']'>											=> ''
                     <quoted i>:n <token ')'> <fromcontents i>:c			=> m+' as '+n+c
                   | <sep i> <fromcontents i>:c							=> ', '+c
 
-
+#Function(None, 'f', ['x', 'y', 'z', 'a'], [Name('False'), Const('TEST'), Const('ING')], 0, None, Stmt([If([(Name('y'), Stmt([Printnl([Name('x')], None)]))], None)]))
 # Matches a Python function definition
 function :i ::= <token 'Function('>
                 <thing i>:d <sep i>
-                <quoted i>:n <sep i>
-                <token '['> <functionargs i>:a <sep i>
-                <thing i>:X <sep i>
-                <thing i>:Y <sep i>
+                <quoted i>:n <sep i> <token '['>
+                <functioncontents i>:a <sep i> <token '['>
+                <functioncontents i>:v <sep i> <thing i>:Y <sep i>
                 <thing i>:Z <sep i>
-                <thing i+1>:s <token ')'>								=> 'def ' + n + '(' + a + '):' + \"""\n\""" + s
+                <stmt i+1>:s <token ')'>		=> 'def '+n+'('+match_args(a,v)+\"""):\n\"""+s
 
-functionargs :i ::= <token ']'>											=> ''
-                  | <sep i> <functionargs i>:f							=> ', '+f
-                  | <quoted i>:q <functionargs i>:f						=> q+f
-                  | <thing i>:t <functionargs i>:f						=> t+f
+functioncontents :i ::= <token ']'>										=> []
+                      | (<quoted i>|<thing i>):t <token ']'>			=> [t]
+                      | (<argsep i>)*:xs
+                        <arg i>:x <token ']'>			=> xs + [x]
 
+argsep :i ::= <quoted i>:q <sep i>											=> q
+         | <thing i>:t <sep i>											=> t
+
+arg :i ::= <quoted i>:q													=> q
+         | <thing i>:t													=> t
 
 #																		################################
 genexpr :i ::= ' '
@@ -411,8 +536,13 @@ getattr :i ::= <token 'Getattr('> <thing i>:o <sep i>
                                   <quoted i>:a <token ')'>				=> o+'.'+a
 
 
-#																		##########################
-global :i ::= ' '
+# Matches injection of global variables
+global :i ::= <token 'Global(['> <globalcontents i>:g <token ')'>		=> 'global '+g
+
+globalcontents :i ::= <token ']'>										=> ''
+                    | <sep i> <globalcontents i>:g						=> ', '+g
+                    | <quoted i>:q <globalcontents i>:g					=> q+g
+                    | <thing i>:t <globalcontents i>:g					=> t+g
 
 
 #If([(Compare(Name('keyPressed'), [('==', Const('space'))]), Stmt([AugAssign(Subscript(Name('velocity'), 'OP_APPLY', [Const(0)]), '+=', Const(10)), AugAssign(Subscript(Name('velocity'), 'OP_APPLY', [Const(0)]), '*=', Const(50)), AugAssign(Subscript(Name('velocity'), 'OP_APPLY', [Const(1)]), '+=', Const(10)), AugAssign(Subscript(Name('velocity'), 'OP_APPLY', [Const(1)]), '*=', Const(50))]))], None)
@@ -439,10 +569,6 @@ importcontents :i ::= <token ']'>										=> ''
                     | <token '('> <quoted i>:m <sep i>
                       <quoted i>:n <token ')'> <importcontents i>:c		=> 'import '+m+' as '+n+c
                     | <sep i> <importcontents i>:c						=> \"""\n\"""+c
-
-
-#																		############################
-import :i ::= ' '
 
 
 #																		################################
@@ -477,8 +603,8 @@ listcompfor :i ::= ' '
 listcompif :i ::= ' '
 
 
-#																		###########################
-mod :i ::= ' '
+# Matches modulo (remainder) operations
+mod :i ::= <token 'Mod(('> <thing i>:l <sep i> <thing i>:r <token '))'>	=> l+' % '+r
 
 
 # Matches a Python module and its contents
@@ -536,8 +662,9 @@ printnl :i ::= <token 'Printnl(['> <printcontents i>:p <sep i>
                                   <thing i>:x <token ')'>				=> 'print('+p+')'
 
 
-#																		##########################
-raise :i ::= ' '
+# Matches exception raising
+raise :i ::= <token 'Raise('> <thing i>:t <sep i> <none i> <sep i>
+                              <none i> <token ')'>						=> 'raise '+t
 
 
 # Matches return statements
@@ -548,8 +675,15 @@ return :i ::= <token 'Return('> <thing i>:t <token ')'>					=> 'return '+t
 rightshift :i ::= ' '
 
 
-#																		#########################
-slice :i ::= ' '
+# Matches slicing of iterables (eg. x[5:15])
+slice :i ::= <token 'Slice('> <thing i>:t <sep i> <quoted i> <sep i>
+             <none i> <sep i> <none i> <token ')'>						=> t+'[:]'
+           | <token 'Slice('> <thing i>:t <sep i> <quoted i> <sep i>
+             <none i> <sep i> <thing i>:r <token ')'>					=> t+'[:'+r+']'
+           | <token 'Slice('> <thing i>:t <sep i> <quoted i> <sep i>
+             <thing i>:l <sep i> <none i> <token ')'>					=> t+'['+l+':]'
+           | <token 'Slice('> <thing i>:t <sep i> <quoted i> <sep i>
+             <thing i>:l <sep i> <thing i>:r <token ')'>				=> t+'['+l+':'+r+']'
 
 
 #																		########################
@@ -595,7 +729,8 @@ trycontents :i ::= <token ']'>											=> ''
 
 
 #																		#############################
-tryfinally :i ::= ' '
+tryfinally :i ::= <token 'TryFinally('> <tryexcept i>:t <sep i>
+                                        <stmt i+1>:s <token ')'>		=> t + \"""\n\""" + '\t'*i + \"""finally:\n\""" + s
 
 
 # Matches a tuple datastructure
@@ -644,15 +779,19 @@ num :i ::= '-' <digit>+:whole '.' <digit>+:frac							=> '-'+''.join(whole)+'.'+
          | <digit>+:whole												=> ''.join(whole)
 
 
-# Matches comma separation
+# Matches comma separation and outputs it
 sep :i ::= <token ', '>													=> ', '
+
+
+# Matches comma separation, outputting nothing
+sepquiet :i ::= <token ', '>											=> ''
 
 
 # Matches a value in quotes, returning the value with no quotes
 # (also see "string")
 quoted :i ::= <token "'"> <quoteval i>:q								=> q
 
-quoteval :i ::= <token "'">												=> ''
+quoteval :i ::= "'"														=> ''
               | <anything>:a <quoteval i>:q								=> a+q
 
 
@@ -679,10 +818,13 @@ listval :i ::= <token ']'>												=> ''
 none :i ::= <token 'None'>												=> 'None'
 """
 
-g = OMeta.makeGrammar(strip_comments(gram), {})
+g = OMeta.makeGrammar(strip_comments(gram), {'match_args':match_args})
 
 if __name__ == '__main__':
-	toparse = sys.argv[1]
+	try:
+		toparse = sys.argv[1]
+	except:
+		toparse = 'transformer.py'
 
 	tree = str(compiler.parseFile(toparse))
 
