@@ -564,10 +564,10 @@ globalcontents :i ::= <token ']'>										=> ''
 # Matches an if statement
 if :i ::= <token 'If([('> <thing i>:c <sep i>
                          <stmt i+1>:s <token ')'> <sep i>
-                         <elifs i>:e <sep i> <else i>:x <token ')'>		=> "if "+c+\""":\n\"""+s+\"""\n\"""+e+\"""\n\"""+x
+                         <elifs i>:e <sep i> <else i>:x <token ')'>		=> "if "+c+\""":\n\"""+s+\"""\n\"""+'\t'*i+e+\"""\n\"""+'\t'*i+x
         | <token 'If([('> <thing i>:c <sep i>
                           <stmt i+1>:s <token ')]'> <sep i> <else i>:x
-                          <token ')'>									=> "if "+c+\""":\n\"""+s+\"""\n\"""+x
+                          <token ')'>									=> "if "+c+\""":\n\"""+s+\"""\n\"""+'\t'*i+x
 
 elifs :i ::= <token ']'>												=> ''
            | <sep i> <elifs i>:e										=> e
