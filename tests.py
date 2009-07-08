@@ -45,20 +45,25 @@ class Test:
 			pass
 
 tests = [\
-	Test('Addition','1+2', ['Constant']), \
+	Test('Addition','1+2', ['Statement', 'Constant']), \
 	Test('And', '1 and True', ['Name', 'Constant']), \
-	Test('Assign Attribute', '', []), \
+	Test('Assign Attribute', 'x.name == "ex"', ['Statement', 'Name']), \
 	Test('Assign Name', 'x = 10', ['Name', 'Constant', 'Assign']), \
 	Test('Assign Tuple', 'x, y, z = 1, 2, "10"', ['Tuple', 'Name', 'Constant', 'Assign']), \
 	Test('Assert', 'assert 10 < 9', ['Compare', 'Constant']), \
-	Test('Assign', 'x = y = 10', ['Name', 'Constant']), \
-	Test('Augmenting Assign', 'x += 10', ['Statement']), \
+	Test('Assign', 'x = y = 10', ['Name', 'Constant', 'Statement']), \
+	Test('Augmenting Assign', 'x += 10', ['Statement', 'Name', 'Constant']), \
 	Test('Backquote', '', ['Statement']), \
 	Test('Bitwise And', '', ['Statement']), \
 	Test('Bitwise Or', '', ['Statement']), \
 	Test('Bitwise Exclusive Or', '', ['Statement']), \
-	Test('Break', '', ['Statement']), \
-	Test('Function Call', 'str(x)', ['Statement']), \
+	Test('Break', """x=0
+while True:
+	x += 1
+	if x == 5:
+		break
+""", ['Statement']), \
+	Test('Function Call', 'str(x)', ['Statement', 'Name']), \
 	Test('Class', """class A(object):
 	def __init__(self):
 		pass
@@ -68,13 +73,16 @@ class B(A):
 	def __init__(self):
 		pass""", ['Statement']), \
 	Test('Compare', 'x < y and 1 == 5 and 2 > 8', ['Name', 'Constant', 'And']), \
-	Test('Constant', '1', []), \
-	Test('Continue', '', ['Statement']), \
+	Test('Constant', '1', ['Statement']), \
+	Test('Continue', """for x in range(5):
+	if x == 2:
+		continue
+	print str(x)""", ['Statement', 'Name', 'Function Call', 'Compare', 'Constant']), \
 	Test('Decorators', '', ['Statement']), \
 	Test('Dictionary', """x = 5
 a = "s"
-y = {a:1, 5:x}""", ['Statement']), \
-	Test('Discard', '5', ['Statement']), \
+y = {a:1, 5:x}""", ['Statement', 'Name', 'Constant', 'Assign', 'Assign Name']), \
+	Test('Discard', '5', ['Statement', 'Constant']), \
 	Test('Division', 'x/10', ['Name', 'Constant']), \
 	Test('Ellipsis', '', ['Statement']), \
 	Test('Expression', '', ['Statement']), \

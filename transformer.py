@@ -390,8 +390,8 @@ bitor :i ::= ' '
 bitxor :i ::= ' '
 
 
-#																		####################################
-break :i ::= ' '
+# Matches a break (leaving a loop before the conditions specify it)
+break :i ::= <token 'Break()'>											=> 'break'
 
 
 # Matches a function call
@@ -433,8 +433,8 @@ const :i ::= <token 'Const'> <constcontents i>:c						=> c
 constcontents :i ::= <token '('> <thing i>:value <token ')'>			=> value
 
 
-#																		#######################################
-continue :i ::= ' '
+# Matches continue (skipping of loop iteration)
+continue :i ::= <token 'Continue()'>									=> 'continue'
 
 
 #																		###################################
