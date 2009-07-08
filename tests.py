@@ -47,7 +47,7 @@ class Test:
 tests = [\
 	Test('Addition','1+2', ['Statement', 'Constant']), \
 	Test('And', '1 and True', ['Name', 'Constant']), \
-	Test('Assign Attribute', 'x.name == "ex"', ['Statement', 'Name']), \
+	Test('Assign Attribute', 'x.name = "ex"', ['Statement', 'Name']), \
 	Test('Assign Name', 'x = 10', ['Name', 'Constant', 'Assign']), \
 	Test('Assign Tuple', 'x, y, z = 1, 2, "10"', ['Tuple', 'Name', 'Constant', 'Assign']), \
 	Test('Assert', 'assert 10 < 9', ['Compare', 'Constant']), \
@@ -123,8 +123,8 @@ import sys as System""", ['Statement']), \
 	Test('Left Shift', '', ['Statement']), \
 	Test('List', """[1,2,3,[1,2,"s"]]
 x = []""", ['Statement']), \
-	Test('List Comprehension', '', ['Statement']), \
-	Test('List Comprehension For', '', ['Statement']), \
+	Test('List Comprehension', '[str(x) for x in range(10)]', ['Statement']), \
+	Test('List Comprehension For', '[x for x in range(5)]', ['Statement']), \
 	Test('List Comprehension If', '', ['Statement']), \
 	Test('Modulo', '10%3', ['Statement']), \
 	Test('Module', 'True', ['Statement', 'Name']), \

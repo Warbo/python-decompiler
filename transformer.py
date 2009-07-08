@@ -333,8 +333,9 @@ andcontents :i ::= <token ']'>											=> ''
                  | <thing i>:t <andcontents i>:a						=> '('+t+')'+a
 
 
-# Matches the assignment of an attribute								#################################
-assattr :i ::= ' '
+# Matches the assignment of an attribute
+assattr :i ::= <token 'AssAttr('> <thing i>:l <sep i> <quoted i>:a
+               <sep i> <quoted i> <token ')'>							=> l+'.'+a
 
 
 # Matches binding a value to a variable name
@@ -507,7 +508,7 @@ function :i ::= <token 'Function('>
               | <token 'Function('> <none i> <sep i> <quoted i>:n
                 <sep i> <token '()'> <sep i> <token '()'> <sep i>
                 <thing i>:Y <sep i> <thing i>:Z <sep i> <stmt i+1>:s
-                <token ')'>												=> 'def '+n+\"""():\n\t\"""+s
+                <token ')'>												=> 'def '+n+\"""():\n\"""+s
               | <token 'Function('>
                 <thing i>:d <sep i>
                 <quoted i>:n <sep i> <token '['>
@@ -610,12 +611,17 @@ listnodecontents :i ::= ']'												=> ''
                       | <thing i>:t <listnodecontents i>:l				=> t+', '+l
 
 
-#																		###############################
-listcomp :i ::= ' '
+# Matches list comprehensions
+listcomp :i ::= <token 'ListComp('> <thing i>:l <sep i> <token '['>
+                <listcompcontents i>:c <token ')'>						=> '['+l+' '+c+']'
+
+listcompcontents :i ::= <token ']'>										=> ''
+                      | <thing i>:t <listcompcontents i>:l				=> t+l
 
 
-#																		##############################
-listcompfor :i ::= ' '
+# Matches list comprehension based on a for loop
+listcompfor :i ::= <token 'ListCompFor('> <thing i>:n <sep i>
+                   <thing i>:l <sep i> <token '[])'>					=> 'for '+n+' in '+l
 
 
 #																		###########################
@@ -735,21 +741,21 @@ subscript :i ::= <token 'Subscript('> <thing i>:l <sep i>
 tryexcept :i ::= <token 'TryExcept('> <stmt i+1>:t <sep i> <token '['>
                  <trycontents i>:e <sep i> <none i> <token ')'>			=> \"""try:\n\"""+t+e
                | <token 'TryExcept('> <stmt i+1>:t <sep i> <token '['>
-                 <trycontents i>:e <sep i> <stmt i+1>:s <token ')'>		=> \"""try:\n\"""+t+e+\"""\n\"""+(i*'\t')+\"""else:\n\"""+s
+                 <trycontents i>:e <sep i> <stmt i+1>:s <token ')'>		=> \"""try:\n\"""+t+e+\"""\n\"""+(i*'\t')+'\t'*i+\"""else:\n\"""+s
 
 trycontents :i ::= <token ']'>											=> ''
                  | <sep i> <trycontents i>:t							=> t
                  | <token '('> <none i> <sep i> <none i> <sep i>
-                   <stmt i+1>:e <token ')'> <trycontents i>:c			=> \"""except:\n\"""+e+c
+                   <stmt i+1>:e <token ')'> <trycontents i>:c			=> '\t'*i+\"""except:\n\"""+e+c
                  | <token '('> <thing i>:x <sep i> <none i>:y <sep i>
-                   <stmt i+1>:e <token ')'> <trycontents i>:c			=> 'except '+x+\""":\n\"""+e+c
+                   <stmt i+1>:e <token ')'> <trycontents i>:c			=> '\t'*i+'except '+x+\""":\n\"""+e+c
                  | <token '('> <thing i>:x <sep i> <thing i>:y <sep i>
-                   <stmt i+1>:e <token ')'> <trycontents i>:c			=> 'except '+x+', '+y+\""":\n\"""+e+c
+                   <stmt i+1>:e <token ')'> <trycontents i>:c			=> '\t'*i+'except '+x+', '+y+\""":\n\"""+e+c
 
 
 #																		#############################
 tryfinally :i ::= <token 'TryFinally('> <tryexcept i>:t <sep i>
-                                        <stmt i+1>:s <token ')'>		=> t + \"""\n\""" + '\t'*i + \"""finally:\n\""" + s
+                                        <stmt i+1>:s <token ')'>		=> t + \"""\n\""" + '\t'*i + '\t'*i+\"""finally:\n\""" + s
 
 
 # Matches a tuple datastructure
