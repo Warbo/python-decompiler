@@ -345,11 +345,11 @@ assnamecontents :i ::= <token '('> <quoted i>:name <sep i>
 
 
 # Matches binding multiple values at once
-asstuple :i ::= <token 'AssTuple(['> <asstuplecontents i>:a <token ')'>	=> '('+a[:-2]+')'
+asstuple :i ::= <token 'AssTuple(['> <asstuplecontents i>:a <token ')'>	=> '('+a+')'
 
 asstuplecontents :i ::= <token ']'>										=> ''
-                      | <sep i> <asstuplecontents i>:l					=> l
-                      | <thing i>:t <asstuplecontents i>:l				=> t+', '+l
+                      | <sep i> <asstuplecontents i>:l					=> ', '+l
+                      | <thing i>:t <asstuplecontents i>:l				=> t+l
 
 
 # Matches an assertion
@@ -564,7 +564,7 @@ globalcontents :i ::= <token ']'>										=> ''
 # Matches an if statement
 if :i ::= <token 'If([('> <thing i>:c <sep i>
                          <stmt i+1>:s <token ')'> <sep i>
-                         <elifs i>:e <sep i> <else i>:x <token ')'>		=> "if "+c+\""":\n\"""+s+\"""\n\"""+'\t'*i+e+\"""\n\"""+'\t'*i+x
+                         <elifs i>:e <sep i> <else i>:x <token ')'>		=> "if "+c+\""":\n\"""+s+\"""\n\"""+e+\"""\n\"""+'\t'*i+x
         | <token 'If([('> <thing i>:c <sep i>
                           <stmt i+1>:s <token ')]'> <sep i> <else i>:x
                           <token ')'>									=> "if "+c+\""":\n\"""+s+\"""\n\"""+'\t'*i+x
@@ -572,7 +572,7 @@ if :i ::= <token 'If([('> <thing i>:c <sep i>
 elifs :i ::= <token ']'>												=> ''
            | <sep i> <elifs i>:e										=> e
            | <token '('> <thing i>:c <sep i>
-                         <stmt i+1>:s <token ')'> <elifs i>:x			=> "elif "+c+\""":\n\"""+s+x
+                         <stmt i+1>:s <token ')'> <elifs i>:x			=> '\t'*i+"elif "+c+\""":\n\"""+s+x
 
 else :i ::= <none i>													=> ''
           | <stmt i+1>:s												=> \"""else:\n\"""+s
