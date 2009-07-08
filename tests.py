@@ -121,7 +121,8 @@ import sys as System""", ['Statement']), \
 	Test('Keyword', '', ['Statement']), \
 	Test('Lambda', '', ['Statement']), \
 	Test('Left Shift', '', ['Statement']), \
-	Test('List', '[1,2,3,[1,2,"s"]]', ['Statement']), \
+	Test('List', """[1,2,3,[1,2,"s"]]
+x = []""", ['Statement']), \
 	Test('List Comprehension', '', ['Statement']), \
 	Test('List Comprehension For', '', ['Statement']), \
 	Test('List Comprehension If', '', ['Statement']), \

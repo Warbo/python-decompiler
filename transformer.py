@@ -603,6 +603,7 @@ leftshift :i ::= ' '
 
 # Matches a list datastructure
 listnode :i ::= <token 'List(['> <listnodecontents i>:l <token ')'>		=> '['+l[:-2]+']'
+              | <token 'List(())'>										=> '[]'
 
 listnodecontents :i ::= ']'												=> ''
                       | <sep i> <listnodecontents i>:l					=> l
