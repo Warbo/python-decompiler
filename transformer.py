@@ -498,12 +498,27 @@ fromcontents :i ::= <token ']'>											=> ''
 
 # Matches a Python function definition
 function :i ::= <token 'Function('>
+                <none i> <sep i>
+                <quoted i>:n <sep i> <token '['>
+                <functioncontents i>:a <sep i> <token '['>
+                <functioncontents i>:v <sep i> <thing i>:Y <sep i>
+                <thing i>:Z <sep i>
+                <stmt i+1>:s <token ')'>								=> 'def '+n+'('+match_args(a,v)+\"""):\n\"""+s
+              | <token 'Function('> <none i> <sep i> <quoted i>:n
+                <sep i> <token '()'> <sep i> <token '()'> <sep i>
+                <thing i>:Y <sep i> <thing i>:Z <sep i> <stmt i+1>:s
+                <token ')'>												=> 'def '+n+\"""():\n\t\"""+s
+              | <token 'Function('>
                 <thing i>:d <sep i>
                 <quoted i>:n <sep i> <token '['>
                 <functioncontents i>:a <sep i> <token '['>
                 <functioncontents i>:v <sep i> <thing i>:Y <sep i>
                 <thing i>:Z <sep i>
-                <stmt i+1>:s <token ')'>		=> 'def '+n+'('+match_args(a,v)+\"""):\n\"""+s
+                <stmt i+1>:s <token ')'>								=> 'def '+n+'('+match_args(a,v)+\"""):\n\t\"""+d+\"""\n\"""+s
+              | <token 'Function('> <thing i>:d <sep i> <quoted i>:n
+                <sep i> <token '()'> <sep i> <token '()'> <sep i>
+                <thing i>:Y <sep i> <thing i>:Z <sep i> <stmt i+1>:s
+                <token ')'>												=> 'def '+n+\"""():\n\t\"""+d+\"""\n\"""+s
 
 functioncontents :i ::= <token ']'>										=> []
                       | (<quoted i>|<thing i>):t <token ']'>			=> [t]
