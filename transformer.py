@@ -318,6 +318,7 @@ thing :i ::= <string i>:s												=> s
 
 ## The following match the AST nodes of the compiler module
 
+#Add((Const("Architectures only contain 'package' elements, not "), Getattr))
 # Matches addition
 add :i ::= <token 'Add'> <addcontents i>:a								=> a
 
@@ -810,15 +811,42 @@ sep :i ::= <token ', '>													=> ', '
 
 # Matches a value in quotes, returning the value with no quotes
 # (also see "string")
-quoted :i ::= <token "'"> <quoteval i>:q								=> q
+quoted :i ::= <token "'''"> <quotetriplesingle i>:q						=> q
+            | <token '""'> '"' <quotetripledouble i>:q					=> q
+            | <token "'"> <quotesingle i>:q								=> q
+            | <token '"'> <quotedouble i>:q								=> q
 
-quoteval :i ::= "'"														=> ''
-              | <anything>:a <quoteval i>:q								=> a+q
+quotesingle :i ::= "'"													=> ''
+                 | <anything>:a <quotesingle i>:q						=> a+q
+
+quotedouble :i ::= '"'													=> ''
+                 | <anything>:a <quotedouble i>:q						=> a+q
+
+quotetriplesingle :i ::= "'" "'" "'"									=> ''
+                       | <anything>:a <quotetriplesingle i>:q			=> a+q
+
+quotetripledouble :i ::= '"' '"' '"'									=> ''
+                       | <anything>:a <quotetripledouble i>:q			=> a+q
 
 
 # Matches a value in quotes, returning the value and the quotes. For
 # a rule which doesn't return the quotes see "quoted"
-string :i ::= <quoted i>:q												=> '\"""'+q+'\"""'
+string :i ::= <token "'''"> <stringtriplesingle i>:q					=> "'''"+q+"'''"
+            | <token '""'> '"' <stringtripledouble i>:q					=> '""'+'"'+q+'""'+'"'
+            | <token "'"> <stringsingle i>:q							=> "'"+q+"'"
+            | <token '"'> <stringdouble i>:q							=> '"'+q+'"'
+
+stringsingle :i ::= "'"													=> ''
+                 | <anything>:a <stringsingle i>:q						=> a+q
+
+stringdouble :i ::= '"'													=> ''
+                 | <anything>:a <stringdouble i>:q						=> a+q
+
+stringtriplesingle :i ::= "'" "'" "'"									=> ''
+                       | <anything>:a <stringtriplesingle i>:q			=> a+q
+
+stringtripledouble :i ::= '"' '"' '"'									=> ''
+                       | <anything>:a <stringtripledouble i>:q			=> a+q
 
 
 # Matches a series of comma-separated values in brackets
