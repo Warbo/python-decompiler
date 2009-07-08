@@ -444,7 +444,8 @@ decorators :i ::= ' '
 
 
 # Matches a dictionary datastructure
-dict :i ::= <token 'Dict(['> <dictcontents i>:d <token ')'>				=> '{'+d+'}'
+dict :i ::= <token 'Dict(())'>											=> '{}'
+          | <token 'Dict(['> <dictcontents i>:d <token ')'>				=> '{'+d+'}'
 
 dictcontents :i ::= <token ']'>											=> ''
                   | <sep i> <dictcontents i>:d							=> ', '+d

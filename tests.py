@@ -81,7 +81,9 @@ class B(A):
 	Test('Decorators', '', ['Statement']), \
 	Test('Dictionary', """x = 5
 a = "s"
-y = {a:1, 5:x}""", ['Statement', 'Name', 'Constant', 'Assign', 'Assign Name']), \
+y = {a:1, 5:x}
+{}
+""", ['Statement', 'Name', 'Constant', 'Assign', 'Assign Name']), \
 	Test('Discard', '5', ['Statement', 'Constant']), \
 	Test('Division', 'x/10', ['Name', 'Constant']), \
 	Test('Ellipsis', '', ['Statement']), \
@@ -161,7 +163,8 @@ except:
 	print "y"
 finally:
 	print 'z'""", ['Statement']), \
-	Test('Tuple', '(a, b, (c, d))', ['Name']), \
+	Test('Tuple', """(a, b, (c, d))
+""", ['Name']), \
 	Test('Unary Addition', '+3', ['Statement']), \
 	Test('Unary Subtraction', '-10', ['Statement']), \
 	Test('While Loop', """x = 1
