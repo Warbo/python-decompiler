@@ -91,7 +91,9 @@ y = {a:1, 5:x}
 	Test('Execute', 'exec("x=True")', ['Statement']), \
 	Test('Rounded-Down Division', '', ['Statement']), \
 	Test('For Loop', """for x in range(5):
-	print str(x)""", ['Statement']), \
+	print str(x)
+	for a, b in enumerate(range(10)):
+		print str(a*b)""", ['Statement']), \
 	Test('From', """from os import get_cwd
 from sys import exit as Exit
 from pygame import draw, mixer as sound, surface""", ['Statement']), \
@@ -100,6 +102,10 @@ from pygame import draw, mixer as sound, surface""", ['Statement']), \
 		print x
 def g():
 	print z
+def h(x, y, z="a", w="b", v="c"):
+	\"""Function h.\"""
+	print w
+h(w="j")
 """, ['Statement']), \
 	Test('GenExpr', '', ['Statement']), \
 	Test('GenExprFor', '', ['Statement']), \
@@ -120,7 +126,10 @@ else:
 	print 'd'""", ['Statement']), \
 	Test('Import', """import os
 import sys as System""", ['Statement']), \
-	Test('Keyword', '', ['Statement']), \
+	Test('Keyword', """def f(x, y, a=True, b="h"):
+	if a:
+		print x+y+b
+f('c','d', a=False)""", ['Statement']), \
 	Test('Lambda', '', ['Statement']), \
 	Test('Left Shift', '', ['Statement']), \
 	Test('List', """[1,2,3,[1,2,"s"]]
@@ -140,7 +149,13 @@ x = []""", ['Statement']), \
 	Test('Print New Line', 'print "TEST"', ['Statement']), \
 	Test('Raise', 'raise ValueError()', ['Statement']), \
 	Test('Return', """def f(x):
-	return x*x""", ['Statement']), \
+	return x*x
+def g():
+	return
+def h():
+	return None
+def i():
+	return 1, 2""", ['Statement']), \
 	Test('Right Shift', '', ['Statement']), \
 	Test('Slice', """x[5:15]
 y[:10]

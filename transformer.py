@@ -430,9 +430,8 @@ comparecontents :i ::= <token ']'>										=> ''
 
 
 # Matches constants
-const :i ::= <token 'Const'> <constcontents i>:c						=> c
-
-constcontents :i ::= <token '('> <thing i>:value <token ')'>			=> value
+const :i ::= <token 'Const('> <none i> <token ')'>						=> ''
+           | <token 'Const('> <thing i>:c <token ')'>					=> c
 
 
 # Matches continue (skipping of loop iteration)
@@ -485,7 +484,8 @@ floordiv :i ::= ' '
 # Matches for loops
 for :i ::= <token 'For('> <assname i>:a <sep i> <thing i>:c <sep i>
                           <stmt i+1>:s <sep i> <none i> <token ')'>		=> 'for '+a+' in '+c+\""":\n\"""+s
-
+         | <token 'For('> <asstuple i>:a <sep i> <thing i>:c <sep i>
+                          <stmt i+1>:s <sep i> <none i> <token ')'>		=> 'for '+a+' in '+c+\""":\n\"""+s
 
 # Matches namespace injections
 from :i ::= <token 'From('> <quoted i>:m <sep i> <token '['>
@@ -501,26 +501,26 @@ fromcontents :i ::= <token ']'>											=> ''
 
 # Matches a Python function definition
 function :i ::= <token 'Function('>
-                <none i> <sep i>
+                <thing i> <sep i>
                 <quoted i>:n <sep i> <token '['>
                 <functioncontents i>:a <sep i> <token '['>
                 <functioncontents i>:v <sep i> <thing i>:Y <sep i>
-                <thing i>:Z <sep i>
+                <none i> <sep i>
                 <stmt i+1>:s <token ')'>								=> 'def '+n+'('+match_args(a,v)+\"""):\n\"""+s
               | <token 'Function('> <none i> <sep i> <quoted i>:n
                 <sep i> <token '()'> <sep i> <token '()'> <sep i>
-                <thing i>:Y <sep i> <thing i>:Z <sep i> <stmt i+1>:s
+                <thing i>:Y <sep i> <none i> <sep i> <stmt i+1>:s
                 <token ')'>												=> 'def '+n+\"""():\n\"""+s
               | <token 'Function('>
-                <thing i>:d <sep i>
+                <thing i> <sep i>
                 <quoted i>:n <sep i> <token '['>
                 <functioncontents i>:a <sep i> <token '['>
                 <functioncontents i>:v <sep i> <thing i>:Y <sep i>
-                <thing i>:Z <sep i>
+                <thing i>:d <sep i>
                 <stmt i+1>:s <token ')'>								=> 'def '+n+'('+match_args(a,v)+\"""):\n\t\"""+d+\"""\n\"""+s
-              | <token 'Function('> <thing i>:d <sep i> <quoted i>:n
+              | <token 'Function('> <thing i> <sep i> <quoted i>:n
                 <sep i> <token '()'> <sep i> <token '()'> <sep i>
-                <thing i>:Y <sep i> <thing i>:Z <sep i> <stmt i+1>:s
+                <thing i>:Y <sep i> <thing i>:d <sep i> <stmt i+1>:s
                 <token ')'>												=> 'def '+n+\"""():\n\t\"""+d+\"""\n\"""+s
 
 functioncontents :i ::= <token ']'>										=> []
@@ -592,8 +592,9 @@ importcontents :i ::= <token ']'>										=> ''
                     | <sep i> <importcontents i>:c						=> \"""\n\"""+c
 
 
-#																		################################
-keyword :i ::= ' '
+# Matches key=value arguments to functions
+keyword :i ::= <token 'Keyword('> <quoted i>:k <sep i> <thing i>:t
+               <token ')'>												=> k+'='+t
 
 
 #																		############################
