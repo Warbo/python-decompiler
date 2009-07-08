@@ -145,7 +145,7 @@ z[a:]""", ['Statement']), \
 	Test('Slice Object', '', ['Statement']), \
 	Test('Statement', 'True', ['Module', 'Name']), \
 	Test('Subtraction', '1-x', ['Constant', 'Name']), \
-	Test('Subscription', '', ['Statement']), \
+	Test('Subscription', 'x[5]', ['Statement']), \
 	Test('Try Except', """try:
 	[0,1,2].remove(5)
 except ValueError:
@@ -161,7 +161,7 @@ except:
 finally:
 	print 'z'""", ['Statement']), \
 	Test('Tuple', '(a, b, (c, d))', ['Name']), \
-	Test('Unary Addition', '', ['Statement']), \
+	Test('Unary Addition', '+3', ['Statement']), \
 	Test('Unary Subtraction', '-10', ['Statement']), \
 	Test('While Loop', """x = 1
 while x < 5:

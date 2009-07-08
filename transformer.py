@@ -759,8 +759,8 @@ tuplenodecontents :i ::= ']'											=> ''
                        | <thing i>:t <tuplenodecontents i>:c			=> t+', '+c
 
 
-#																		###################
-unaryadd :i ::= ' '
+# Matches explicitly positive values
+unaryadd :i ::= <token 'UnaryAdd('> <thing i>:t <token ')'>				=> '+'+t
 
 
 # Matches negative values
