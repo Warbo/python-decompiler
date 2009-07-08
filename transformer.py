@@ -470,8 +470,9 @@ ellipsis :i ::= ' '
 expression :i ::= ' '
 
 
-#																		###################################
-exec :i ::= ' '
+# Matches execution of strings containing code
+exec :i ::= <token 'Exec('> <thing i>:c <sep i> <none i> <sep i>
+            <none i> <token ')'>										=> 'exec('+c+')'
 
 
 #																		###################################
@@ -494,7 +495,7 @@ fromcontents :i ::= <token ']'>											=> ''
                     <quoted i>:n <token ')'> <fromcontents i>:c			=> m+' as '+n+c
                   | <sep i> <fromcontents i>:c							=> ', '+c
 
-#Function(None, 'f', ['x', 'y', 'z', 'a'], [Name('False'), Const('TEST'), Const('ING')], 0, None, Stmt([If([(Name('y'), Stmt([Printnl([Name('x')], None)]))], None)]))
+
 # Matches a Python function definition
 function :i ::= <token 'Function('>
                 <thing i>:d <sep i>
@@ -545,11 +546,13 @@ globalcontents :i ::= <token ']'>										=> ''
                     | <thing i>:t <globalcontents i>:g					=> t+g
 
 
-#If([(Compare(Name('keyPressed'), [('==', Const('space'))]), Stmt([AugAssign(Subscript(Name('velocity'), 'OP_APPLY', [Const(0)]), '+=', Const(10)), AugAssign(Subscript(Name('velocity'), 'OP_APPLY', [Const(0)]), '*=', Const(50)), AugAssign(Subscript(Name('velocity'), 'OP_APPLY', [Const(1)]), '+=', Const(10)), AugAssign(Subscript(Name('velocity'), 'OP_APPLY', [Const(1)]), '*=', Const(50))]))], None)
 # Matches an if statement
 if :i ::= <token 'If([('> <thing i>:c <sep i>
                          <stmt i+1>:s <token ')'> <sep i>
                          <elifs i>:e <sep i> <else i>:x <token ')'>		=> "if "+c+\""":\n\"""+s+\"""\n\"""+e+\"""\n\"""+x
+        | <token 'If([('> <thing i>:c <sep i>
+                          <stmt i+1>:s <token ')]'> <sep i> <else i>:x
+                          <token ')'>									=> "if "+c+\""":\n\"""+s+\"""\n\"""+x
 
 elifs :i ::= <token ']'>												=> ''
            | <sep i> <elifs i>:e										=> e
@@ -781,10 +784,6 @@ num :i ::= '-' <digit>+:whole '.' <digit>+:frac							=> '-'+''.join(whole)+'.'+
 
 # Matches comma separation and outputs it
 sep :i ::= <token ', '>													=> ', '
-
-
-# Matches comma separation, outputting nothing
-sepquiet :i ::= <token ', '>											=> ''
 
 
 # Matches a value in quotes, returning the value with no quotes

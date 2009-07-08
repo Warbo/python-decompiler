@@ -88,6 +88,8 @@ from pygame import draw, mixer as sound, surface""", ['Statement']), \
 	Test('Function', """def f(x, y=False, z="TEST", a="ING"):
 	if y:
 		print x
+def g():
+	print z
 """, ['Statement']), \
 	Test('GenExpr', '', ['Statement']), \
 	Test('GenExprFor', '', ['Statement']), \
@@ -101,6 +103,8 @@ x = 2""", ['Statement']), \
 elif x > 2:
 	print "b"
 elif x == 2:
+	if y:
+		print x
 	print "c"
 else:
 	print 'd'""", ['Statement']), \
