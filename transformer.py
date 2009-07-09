@@ -785,6 +785,7 @@ tryfinally :i ::= <token 'TryFinally('> <tryexcept i>:t <sep i>
 
 # Matches a tuple datastructure
 tuplenode :i ::= <token 'Tuple(['> <tuplenodecontents i>:t ')'			=> '('+t[:-2]+')'
+               | <token 'Tuple(())'>									=> '()'
 
 tuplenodecontents :i ::= ']'											=> ''
                        | <sep i> <tuplenodecontents i>:t				=> t

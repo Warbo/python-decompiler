@@ -187,7 +187,7 @@ except:
 finally:
 	print 'z'""", ['Statement']), \
 	Test('Tuple', """(a, b, (c, d))
-""", ['Name']), \
+x=()""", ['Name']), \
 	Test('Unary Addition', '+3', ['Statement']), \
 	Test('Unary Subtraction', '-10', ['Statement']), \
 	Test('While Loop', """x = 1
