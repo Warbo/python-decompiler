@@ -21,7 +21,14 @@ def strip_comments(s):
 				r = r + character
 	return r
 
-def match_args(names, values):
+def match_args(names, values, flag=0):
+	if flag == "4":
+		extra_args = names.pop()
+	elif flag == "8":
+		keyword_args = names.pop()
+	elif flag == "12":
+		keyword_args = names.pop()
+		extra_args = names.pop()
 	names.reverse()
 	values.reverse()
 	matched = []
@@ -31,6 +38,13 @@ def match_args(names, values):
 		except:
 			matched.append(names[i])
 	matched.reverse()
+	if flag == "4":
+		matched.append('*'+extra_args)
+	elif flag == "8":
+		matched.append('**'+keyword_args)
+	elif flag == "12":
+		matched.append('*'+extra_args)
+		matched.append('**'+keyword_args)
 	out = ', '.join(matched)
 	return out
 
@@ -498,29 +512,31 @@ fromcontents :i ::= <token ']'>											=> ''
                     <quoted i>:n <token ')'> <fromcontents i>:c			=> m+' as '+n+c
                   | <sep i> <fromcontents i>:c							=> ', '+c
 
-
+#Function(None, 'i', ['a'], [], 4, None, Stmt([Printnl([CallFunc(Name('str'), [Name('a')], None, None)], None)]))
+#Function(None, 'j', ['a'], [], 8, None, Stmt([Printnl([CallFunc(Name('str'), [Name('a')], None, None)], None)]))
+#Function(None, 'k', ['a', 'b'], [], 12, None, Stmt([Printnl([Add((CallFunc(Name('str'), [Name('a')], None, None), CallFunc(Name('str'), [Name('b')], None, None)))], None)]))
 # Matches a Python function definition
 function :i ::= <token 'Function('>
                 <thing i> <sep i>
                 <quoted i>:n <sep i> <token '['>
                 <functioncontents i>:a <sep i> <token '['>
-                <functioncontents i>:v <sep i> <thing i>:Y <sep i>
+                <functioncontents i>:v <sep i> <thing i>:f <sep i>
                 <none i> <sep i>
-                <stmt i+1>:s <token ')'>								=> 'def '+n+'('+match_args(a,v)+\"""):\n\"""+s
+                <stmt i+1>:s <token ')'>								=> 'def '+n+'('+match_args(a,v,flag=f)+\"""):\n\"""+s
               | <token 'Function('> <none i> <sep i> <quoted i>:n
                 <sep i> <token '()'> <sep i> <token '()'> <sep i>
-                <thing i>:Y <sep i> <none i> <sep i> <stmt i+1>:s
+                <thing i>:f <sep i> <none i> <sep i> <stmt i+1>:s
                 <token ')'>												=> 'def '+n+\"""():\n\"""+s
               | <token 'Function('>
                 <thing i> <sep i>
                 <quoted i>:n <sep i> <token '['>
                 <functioncontents i>:a <sep i> <token '['>
-                <functioncontents i>:v <sep i> <thing i>:Y <sep i>
+                <functioncontents i>:v <sep i> <thing i>:f <sep i>
                 <thing i>:d <sep i>
-                <stmt i+1>:s <token ')'>								=> 'def '+n+'('+match_args(a,v)+\"""):\n\t\"""+d+\"""\n\"""+s
+                <stmt i+1>:s <token ')'>								=> 'def '+n+'('+match_args(a,v,flag=f)+\"""):\n\t\"""+d+\"""\n\"""+s
               | <token 'Function('> <thing i> <sep i> <quoted i>:n
                 <sep i> <token '()'> <sep i> <token '()'> <sep i>
-                <thing i>:Y <sep i> <thing i>:d <sep i> <stmt i+1>:s
+                <thing i>:f <sep i> <thing i>:d <sep i> <stmt i+1>:s
                 <token ')'>												=> 'def '+n+\"""():\n\t\"""+d+\"""\n\"""+s
 
 functioncontents :i ::= <token ']'>										=> []

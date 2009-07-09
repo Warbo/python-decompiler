@@ -105,7 +105,12 @@ def g():
 def h(x, y, z="a", w="b", v="c"):
 	\"""Function h.\"""
 	print w
-h(w="j")
+def i(*a):
+	print str(a)
+def j(**a):
+	print str(a)
+def k(*a, **b):
+	print str(a)+str(b)
 """, ['Statement']), \
 	Test('GenExpr', '', ['Statement']), \
 	Test('GenExprFor', '', ['Statement']), \
@@ -132,7 +137,8 @@ import sys as System""", ['Statement']), \
 f('c','d', a=False)""", ['Statement']), \
 	Test('Lambda', """f = lambda x, y, a=2: x+y+a*a
 lambda: 5*2
-lambda x: x*x""", ['Statement']), \
+lambda x: x*x
+filter(lambda x: x>5, range(10))""", ['Statement']), \
 	Test('Left Shift', '', ['Statement']), \
 	Test('List', """[1,2,3,[1,2,"s"]]
 x = []""", ['Statement']), \
