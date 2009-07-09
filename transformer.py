@@ -415,8 +415,12 @@ callfunc :i ::= <token 'CallFunc'> <callfunccontents i>:c				=> c
 
 callfunccontents :i ::= <token '('> <thing i>:n <sep i>
                                     <token '['> <callfuncargs i>:a <sep i>
-                                    <thing i>:three <sep i>
+                                    <none i>:list <sep i>
                                     <thing i>:four <token ')'>			=> n+'('+a+')'
+                      | <token '('> <thing i>:n <sep i>
+                                    <token '['> <callfuncargs i>:a <sep i>
+                                    <thing i>:list <sep i>
+                                    <thing i>:four <token ')'>			=> n+'('+a+'*'+list+')'
 
 callfuncargs :i ::= <token ']'>											=> ''
                   | <sep i> <callfuncargs i>:a							=> ', '+a
@@ -427,6 +431,9 @@ callfuncargs :i ::= <token ']'>											=> ''
 class :i ::= <token 'Class('> <quoted i>:n <sep i> <token '['>
              <classcontents i>:c <sep i> <none i> <sep i> <stmt i+1>:s
              <token ')'>												=> 'class '+n+'('+c+\"""):\n\"""+s
+           | <token 'Class('> <quoted i>:n <sep i> <token '['>
+             <classcontents i>:c <sep i> <string i>:d <sep i>
+             <stmt i+1>:s <token ')'>									=> 'class '+n+'('+c+\"""):\n\"""+(i+1)*'\t'+d+\"""\n\"""+s
 
 classcontents :i ::= <token ']'>										=> ''
                    | <sep i> <classcontents i>:c						=> ', '+c
@@ -530,12 +537,12 @@ function :i ::= <token 'Function('>
                 <quoted i>:n <sep i> <token '['>
                 <functioncontents i>:a <sep i> <token '['>
                 <functioncontents i>:v <sep i> <thing i>:f <sep i>
-                <thing i>:d <sep i>
-                <stmt i+1>:s <token ')'>								=> 'def '+n+'('+match_args(a,v,flag=f)+\"""):\n\t\"""+d+\"""\n\"""+s
+                <string i>:d <sep i>
+                <stmt i+1>:s <token ')'>								=> 'def '+n+'('+match_args(a,v,flag=f)+\"""):\n\"""+((i+1)*'\t')+d+\"""\n\"""+s
               | <token 'Function('> <thing i> <sep i> <quoted i>:n
                 <sep i> <token '()'> <sep i> <token '()'> <sep i>
-                <thing i>:f <sep i> <thing i>:d <sep i> <stmt i+1>:s
-                <token ')'>												=> 'def '+n+\"""():\n\t\"""+d+\"""\n\"""+s
+                <thing i>:f <sep i> <string i>:d <sep i> <stmt i+1>:s
+                <token ')'>												=> 'def '+n+\"""():\n\"""+((i+1)*'\t')+d+\"""\n\"""+s
 
 functioncontents :i ::= <token ']'>										=> []
                       | <arg i>:t <token ']'>							=> [t]

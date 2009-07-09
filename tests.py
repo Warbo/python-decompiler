@@ -63,7 +63,9 @@ while True:
 	if x == 5:
 		break
 """, ['Statement']), \
-	Test('Function Call', 'str(x)', ['Statement', 'Name']), \
+	Test('Function Call', """str(x)
+f(*[1,2,3])
+g(*x*2)""", ['Statement', 'Name']), \
 	Test('Class', """class A(object):
 	def __init__(self):
 		pass
