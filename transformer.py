@@ -548,20 +548,31 @@ argsep :i ::= <quoted i>:q <sep i>											=> q
 arg :i ::= <quoted i>:q													=> q
          | <thing i>:t													=> t
 
-#																		################################
-genexpr :i ::= ' '
+
+# A list-generating expression
+genexpr :i ::= <token 'GenExpr('> <thing i>:inner <token ')'>			=> inner
 
 
-#																		##############################
-genexprfor :i ::= ' '
+# The source in a list-generating expression
+genexprfor :i ::= <token 'GenExprFor('> <thing i>:name <sep i>
+                  <thing i>:list <sep i> <token '['>
+                  <genexprforcontents i>:ifs <token ')'>				=> ' for '+name+' in '+list+ifs
+
+genexprforcontents :i ::= <token ']'>									=> ''
+                        | <thing i>:thing <genexprforcontents i>:rest	=> thing+rest
 
 
-#																		################################
-genexprif :i ::= ' '
+# Matches conditions on a list-generating expression
+genexprif :i ::= <token 'GenExprIf('> <thing i>:condition <token ')'>	=> ' if '+condition
 
 
-#																		##############################
-genexprinner :i ::= ' '
+# The body of a list-generating expression
+genexprinner :i ::= <token 'GenExprInner('> <thing i>:left <sep i>
+                    <token '['> <genexprinnercontents i>:right
+                    <token ')'>											=> left + ' ' + right
+
+genexprinnercontents :i ::= <token ']'>									=> ''
+                          | <thing i>:thing <genexprinnercontents i>:r	=> thing + r
 
 
 # Matches attribute lookup
@@ -594,16 +605,16 @@ elifs :i ::= <token ']'>												=> ''
 else :i ::= <none i>													=> ''
           | <stmt i+1>:s												=> \"""else:\n\"""+s
 
-
+#Import([('compiler', None), ('traceback', None)])
 # Matches module imports
-import :i ::= <token 'Import(['> <importcontents i>:c <token ')'>		=> c
+import :i ::= <token 'Import(['> <importcontents i>:c <token ')'>		=> 'import '+c
 
 importcontents :i ::= <token ']'>										=> ''
+                    | <sep i> <importcontents i>:c						=> ', '+c
                     | <token '('> <quoted i>:m <sep i>
-                      <none i> <token ')'> <importcontents i>:c			=> 'import '+m+c
+                      <none i> <token ')'> <importcontents i>:c			=> m+c
                     | <token '('> <quoted i>:m <sep i>
-                      <quoted i>:n <token ')'> <importcontents i>:c		=> 'import '+m+' as '+n+c
-                    | <sep i> <importcontents i>:c						=> \"""\n\"""+c
+                      <quoted i>:n <token ')'> <importcontents i>:c		=> m+' as '+n+c
 
 
 # Matches key=value arguments to functions

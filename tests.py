@@ -112,10 +112,10 @@ def j(**a):
 def k(*a, **b):
 	print str(a)+str(b)
 """, ['Statement']), \
-	Test('GenExpr', '', ['Statement']), \
-	Test('GenExprFor', '', ['Statement']), \
-	Test('GenExprIf', '', ['Statement']), \
-	Test('GenExprInner', '', ['Statement']), \
+	Test('GenExpr', 'print(x for x in range(5))', ['Statement']), \
+	Test('GenExprFor', 'print(x for x in range(5))', ['Statement']), \
+	Test('GenExprIf', 'print(x for x in range(5) if x < 2)', ['Statement']), \
+	Test('GenExprInner', 'print(x for x in range(5))', ['Statement']), \
 	Test('Get Attribute', 'x.name', ['Statement']), \
 	Test('Global', """global x
 x = 2""", ['Statement']), \
@@ -130,7 +130,12 @@ elif x == 2:
 else:
 	print 'd'""", ['Statement']), \
 	Test('Import', """import os
-import sys as System""", ['Statement']), \
+import sys as System
+if True:
+	import StringIO
+	import pygame, compiler
+	import urllib2
+print 'x'""", ['Statement']), \
 	Test('Keyword', """def f(x, y, a=True, b="h"):
 	if a:
 		print x+y+b
