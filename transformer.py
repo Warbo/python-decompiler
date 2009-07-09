@@ -672,7 +672,7 @@ mod :i ::= <token 'Mod(('> <thing i>:l <sep i> <thing i>:r <token '))'>	=> l+' %
 module :i ::= <token 'Module'> <modcontents i>:t						=> t
 
 modcontents :i ::= <token '('> <none i> <sep i> <tupleval i>:t			=> t
-                 | <token '('> <quoted i>:d <sep i> <tupleval i>:t		=> '""'+'"' + \"""\n\""" + d + \"""\n\""" + '""'+'"' + t
+                 | <token '('> <string i>:d <sep i> <tupleval i>:t		=> d + \"""\n\""" + t
 
 
 # Matches multiplication
@@ -795,12 +795,13 @@ tryfinally :i ::= <token 'TryFinally('> <tryexcept i>:t <sep i>
 
 
 # Matches a tuple datastructure
-tuplenode :i ::= <token 'Tuple(['> <tuplenodecontents i>:t ')'			=> '('+t[:-2]+')'
+tuplenode :i ::= <token 'Tuple(['> <thing i>:singleton <token '])'>		=> '('+singleton+',)'
+               | <token 'Tuple(['> <tuplenodecontents i>:t ')'			=> '('+t+')'
                | <token 'Tuple(())'>									=> '()'
 
 tuplenodecontents :i ::= ']'											=> ''
-                       | <sep i> <tuplenodecontents i>:t				=> t
-                       | <thing i>:t <tuplenodecontents i>:c			=> t+', '+c
+                       | <sep i> <tuplenodecontents i>:t				=> ', '+t
+                       | <thing i>:t <tuplenodecontents i>:c			=> t+c
 
 
 # Matches explicitly positive values
@@ -963,10 +964,47 @@ if __name__ == '__main__':
 	generated = ast_tree.apply('any')
 
 	try:
-		assert str(compiler.parse(generated)) == tree
+		tree2 = str(compiler.parse(generated))
+	except SyntaxError:
+		print "Generated code does not parse"
+	try:
+		assert tree2 == tree
 		print "Success"
 	except:
 		print "Fail"
-		print tree
-		print ''
+		try:
+			t1 = ''
+			wrong = False
+			for x in range(len(tree)):
+				if wrong:
+					t1 = t1 + tree[x]
+				else:
+					if tree[x] == tree2[x]:
+						t1 = t1 + tree[x]
+					else:
+						t1 = t1 + '\n|ERROR|\n'+tree[x]
+						wrong = True
+			print t1
+			print '--------------------------------------------------------'
+			wrong = False
+			t2 = ''
+			for x in range(len(tree)):
+				if wrong:
+					t2 = t2 + tree2[x]
+				else:
+					if tree[x] == tree2[x]:
+						t2 = t2 + tree2[x]
+					else:
+						t2 = t2 + '\n|ERROR|\n'+tree2[x]
+						wrong = True
+			print t2
+			print '--------------------------------------------------------'
+		except:
+			print tree
+			print '===================================================='
+			try:
+				print tree2
+				print '--------------------------------------------------------'
+			except:
+				pass
 		print generated
