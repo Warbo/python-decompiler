@@ -130,7 +130,9 @@ import sys as System""", ['Statement']), \
 	if a:
 		print x+y+b
 f('c','d', a=False)""", ['Statement']), \
-	Test('Lambda', '', ['Statement']), \
+	Test('Lambda', """f = lambda x, y, a=2: x+y+a*a
+lambda: 5*2
+lambda x: x*x""", ['Statement']), \
 	Test('Left Shift', '', ['Statement']), \
 	Test('List', """[1,2,3,[1,2,"s"]]
 x = []""", ['Statement']), \

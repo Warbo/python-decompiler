@@ -597,8 +597,12 @@ keyword :i ::= <token 'Keyword('> <quoted i>:k <sep i> <thing i>:t
                <token ')'>												=> k+'='+t
 
 
-#																		############################
-lambda :i ::= ' '
+# Matches stateless function definition
+lambda :i ::= <token 'Lambda(['> <functioncontents i>:n <sep i>
+              <token '['> <functioncontents i>:v <sep i> <thing i>
+              <sep i> <thing i>:code <token ')'>						=> 'lambda '+match_args(n,v)+': '+code
+            | <token 'Lambda((), (), '> <thing i> <sep i> <thing i>:code
+              <token ')'>												=> 'lambda: '+code
 
 
 #																		##########################
@@ -873,11 +877,52 @@ g = OMeta.makeGrammar(strip_comments(gram), {'match_args':match_args})
 
 if __name__ == '__main__':
 	try:
-		toparse = sys.argv[1]
-	except:
-		toparse = 'transformer.py'
+		if sys.argv[2].strip() == "list":
+			ins = open(sys.argv[1], 'r')
+			parsefiles = []
 
-	tree = str(compiler.parseFile(toparse))
+			for line in ins.readlines():
+				parsefiles.append(line.strip())
+			ins.close()
+
+			o1 = open('DONTWORK', 'w')
+			o2 = open('DOWORK', 'w')
+			o3 = open('REC', 'w')
+
+			for toparse in parsefiles:
+				print toparse[-4]
+				try:
+					tree = str(compiler.parseFile(toparse))
+				except SyntaxError:
+					print toparse + " SyntaxError"
+				ast_tree = g(tree)
+				try:
+					generated = ast_tree.apply('any')
+				except RuntimeError:
+					o3.write(toparse)
+					continue
+
+				try:
+					assert str(compiler.parse(generated)) == tree
+					o2.write(toparse)
+				except AssertionError:
+					o1.write(toparse)
+				except IndentationError:
+					o1.write(toparse)
+				except SyntaxError:
+					o1.write(toparse)
+			sys.exit()
+	except IndexError:
+		try:
+			toparse = sys.argv[1]
+		except:
+			toparse = 'transformer.py'
+
+	try:
+		tree = str(compiler.parseFile(toparse))
+	except SyntaxError:
+		print toparse + ": SyntaxError"
+		sys.exit()
 
 	print "Assigning input"
 
