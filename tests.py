@@ -102,7 +102,7 @@ from pygame import draw, mixer as sound, surface""", ['Statement']), \
 		print x
 def g():
 	print z
-def h(x, y, z="a", w="b", v="c"):
+def h((x, (y, q)), z="a", w="b", v="c"):
 	\"""Function h.\"""
 	print w
 def i(*a):

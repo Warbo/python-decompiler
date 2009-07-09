@@ -538,14 +538,13 @@ function :i ::= <token 'Function('>
                 <token ')'>												=> 'def '+n+\"""():\n\t\"""+d+\"""\n\"""+s
 
 functioncontents :i ::= <token ']'>										=> []
-                      | (<quoted i>|<thing i>):t <token ']'>			=> [t]
-                      | (<argsep i>)*:xs
-                        <arg i>:x <token ']'>			=> xs + [x]
+                      | <arg i>:t <token ']'>							=> [t]
+                      | (<argsep i>)*:xs <arg i>:x <token ']'>			=> xs + [x]
 
-argsep :i ::= <quoted i>:q <sep i>											=> q
-         | <thing i>:t <sep i>											=> t
+argsep :i ::= <arg i>:a <sep i>											=> a
 
 arg :i ::= <quoted i>:q													=> q
+         | <token '('> (<argsep i>)*:xs <arg i>:x <token ')'>			=> '('+', '.join(xs)+', '+x+')'
          | <thing i>:t													=> t
 
 
