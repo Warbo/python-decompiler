@@ -82,6 +82,7 @@ class B(A):
 3.4
 -12.45
 -8.048e-16
+10+5j
 'SINGLE'
 "DOUBLE"
 '''Triple'''

@@ -321,8 +321,8 @@ thing :i ::= <string i>:s												=> s
            | <none i>:n													=> n
 
            # "num" matches a number, positive or negative, integer or
-           # decimal
-           | <num i>:n													=> str(n)
+           # fractional, real or complex, indexed or not
+           | <num>:n													=> n
 
            # This catches anything else that occurs in the stream if it
            # doesn't match something above. It consumes 1 character at a
@@ -846,24 +846,38 @@ yield :i ::= ' '
 ## The following match common value formats used in the above
 
 # Matches numbers
-num :i ::= '-' <digit>+:whole '.' <digit>+:frac 'e' <thing i>:e			=> '-'+''.join(whole)+'.'+''.join(frac)+'e'+e
-         | '-' <digit>+:whole '.' <digit>+:frac							=> '-'+''.join(whole)+'.'+''.join(frac)
-         # whole negative reals
-         | '-' <digit>+:whole '.' 'e' <thing i>:e						=> '-'+''.join(whole)+'.e'+e
-         | '-' <digit>+:whole '.'										=> '-'+''.join(whole)+'.'
-         # negative integers
-         | '-' <digit>+:whole 'e' <thing i>:e							=> '-'+''.join(whole)+'e'+e
-         | '-' <digit>+:whole											=> '-'+''.join(whole)
-         # positive reals
-         | <digit>+:whole '.' <digit>+:frac 'e' <thing i>:e				=> ''.join(whole)+'.'+''.join(frac)+'e'+e
-         | <digit>+:whole '.' <digit>+:frac								=> ''.join(whole)+'.'+''.join(frac)
-         # positive whole reals and zero
-         | <digit>+:whole '.' 'e' <thing i>:e							=> ''.join(whole)+'.e'+e
-         | <digit>+:whole '.'											=> ''.join(whole)+'.'
-         # positive integers and zero
-         | <digit>+:whole 'e' <thing i>:e								=> ''.join(whole)+'e'+e
-         | <digit>+:whole												=> ''.join(whole)
 
+dig ::= '0'																=> '0'
+      | '1'																=> '1'
+      | '2'																=> '2'
+      | '3'																=> '3'
+      | '4'																=> '4'
+      | '5'																=> '5'
+      | '6'																=> '6'
+      | '7'																=> '7'
+      | '8'																=> '8'
+      | '9'																=> '9'
+
+whole ::= <dig>+:digits												=> ''.join(digits)
+
+fraction ::= <whole>:whole '.' <whole>:fraction							=> whole + '.' + fraction
+
+int ::= <whole>:w '.'													=> w+'.'
+      | <whole>:w														=> w
+
+vals ::= <fraction>:f													=> f
+       | <int>:i														=> i
+
+posneg ::= '-' <vals>:value												=> '-'+value
+         | <vals>:value
+
+exp ::= <posneg>:value 'e' <posneg>:exponent							=> value+'e'+exponent
+      | <posneg>:value													=> value
+
+complex ::= <exp>:number 'j'											=> number+'j'
+          | <exp>:number												=> number
+
+num ::= <complex>:number												=> number
 
 # Matches comma separation and outputs it
 sep :i ::= <token ', '>													=> ', '
