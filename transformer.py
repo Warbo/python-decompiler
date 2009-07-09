@@ -512,9 +512,7 @@ fromcontents :i ::= <token ']'>											=> ''
                     <quoted i>:n <token ')'> <fromcontents i>:c			=> m+' as '+n+c
                   | <sep i> <fromcontents i>:c							=> ', '+c
 
-#Function(None, 'i', ['a'], [], 4, None, Stmt([Printnl([CallFunc(Name('str'), [Name('a')], None, None)], None)]))
-#Function(None, 'j', ['a'], [], 8, None, Stmt([Printnl([CallFunc(Name('str'), [Name('a')], None, None)], None)]))
-#Function(None, 'k', ['a', 'b'], [], 12, None, Stmt([Printnl([Add((CallFunc(Name('str'), [Name('a')], None, None), CallFunc(Name('str'), [Name('b')], None, None)))], None)]))
+
 # Matches a Python function definition
 function :i ::= <token 'Function('>
                 <thing i> <sep i>
@@ -644,11 +642,15 @@ listcompcontents :i ::= <token ']'>										=> ''
 
 # Matches list comprehension based on a for loop
 listcompfor :i ::= <token 'ListCompFor('> <thing i>:n <sep i>
-                   <thing i>:l <sep i> <token '[])'>					=> 'for '+n+' in '+l
+                   <thing i>:l <sep i> <token '['>
+                   <listcompforcontents i>:c <token ')'>				=> 'for '+n+' in '+l+' '+c
+
+listcompforcontents :i ::= <token ']'>									=> ''
+                         | <thing i>:t <listcompforcontents i>:l		=> t+l
 
 
-#																		###########################
-listcompif :i ::= ' '
+# Matches if conditions to list comprehensions
+listcompif :i ::= <token 'ListCompIf('> <thing i>:condition <token ')'>	=> ' if '+condition
 
 
 # Matches modulo (remainder) operations

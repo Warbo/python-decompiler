@@ -144,7 +144,7 @@ filter(lambda x: x>5, range(10))""", ['Statement']), \
 x = []""", ['Statement']), \
 	Test('List Comprehension', '[str(x) for x in range(10)]', ['Statement']), \
 	Test('List Comprehension For', '[x for x in range(5)]', ['Statement']), \
-	Test('List Comprehension If', '', ['Statement']), \
+	Test('List Comprehension If', '[x for x in range(10) if x < 4]', ['Statement']), \
 	Test('Modulo', '10%3', ['Statement']), \
 	Test('Module', 'True', ['Statement', 'Name']), \
 	Test('Multiplication', '5*x', ['Constant', 'Name']), \
