@@ -332,7 +332,7 @@ thing :i ::= <string i>:s												=> s
 
 ## The following match the AST nodes of the compiler module
 
-#Add((Const("Architectures only contain 'package' elements, not "), Getattr))
+#Add((Power((CallFunc(Getattr(Name('math'), 'hypot'), [Sub((Subscript(Name('point_position'), 'OP_APPLY', [Const(0)]), Subscript(Name('position'), 'OP_APPLY', [Const(0)]))), Sub((Subscript(Name('point_position'), 'OP_APPLY', [Const(1)]), Subscript(Name('position'), 'OP_APPLY', [Const(1)])))], None, None), Const(2))), Const(9.9999999999999995e-07)))
 # Matches addition
 add :i ::= <token 'Add'> <addcontents i>:a								=> a
 
@@ -357,7 +357,9 @@ assattr :i ::= <token 'AssAttr('> <thing i>:l <sep i> <quoted i>:a
 assname :i ::= <token 'AssName'> <assnamecontents i>:a					=> a
 
 assnamecontents :i ::= <token '('> <quoted i>:name <sep i>
-                                   <quoted i>:op <token ')'>			=> name
+                                   <token "'OP_ASSIGN'"> <token ')'>	=> name
+                     | <token '('> <quoted i>:name <sep i>
+                                   <token "'OP_DELETE'"> <token ')'>	=> 'del('+name+')'
 
 
 # Matches binding multiple values at once
@@ -775,6 +777,15 @@ subcontents :i ::= <token '(('> <thing i>:left <sep i>
 
 # Matches indexing of an object (eg. mylist[5])
 subscript :i ::= <token 'Subscript('> <thing i>:l <sep i>
+                 <token "'OP_DELETE'"> <sep i>
+                 <token '['> <thing i>:s <token '])'>					=> 'del('+l+'['+s+'])'
+               | <token 'Subscript('> <thing i>:l <sep i>
+                 <token "'OP_APPLY'"> <sep i>
+                 <token '['> <thing i>:s <token '])'>					=> l+'['+s+']'
+               | <token 'Subscript('> <thing i>:l <sep i>
+                 <token "'OP_ASSIGN'"> <sep i>
+                 <token '['> <thing i>:s <token '])'>					=> l+'['+s+']'
+               | <token 'Subscript('> <thing i>:l <sep i>
                  <quoted i> <sep i>
                  <token '['> <thing i>:s <token '])'>					=> l+'['+s+']'
 
@@ -835,16 +846,22 @@ yield :i ::= ' '
 ## The following match common value formats used in the above
 
 # Matches numbers
-num :i ::= '-' <digit>+:whole '.' <digit>+:frac							=> '-'+''.join(whole)+'.'+''.join(frac)
+num :i ::= '-' <digit>+:whole '.' <digit>+:frac 'e' <thing i>:e			=> '-'+''.join(whole)+'.'+''.join(frac)+'e'+e
+         | '-' <digit>+:whole '.' <digit>+:frac							=> '-'+''.join(whole)+'.'+''.join(frac)
          # whole negative reals
+         | '-' <digit>+:whole '.' 'e' <thing i>:e						=> '-'+''.join(whole)+'.e'+e
          | '-' <digit>+:whole '.'										=> '-'+''.join(whole)+'.'
          # negative integers
+         | '-' <digit>+:whole 'e' <thing i>:e							=> '-'+''.join(whole)+'e'+e
          | '-' <digit>+:whole											=> '-'+''.join(whole)
          # positive reals
+         | <digit>+:whole '.' <digit>+:frac 'e' <thing i>:e				=> ''.join(whole)+'.'+''.join(frac)+'e'+e
          | <digit>+:whole '.' <digit>+:frac								=> ''.join(whole)+'.'+''.join(frac)
          # positive whole reals and zero
+         | <digit>+:whole '.' 'e' <thing i>:e							=> ''.join(whole)+'.e'+e
          | <digit>+:whole '.'											=> ''.join(whole)+'.'
          # positive integers and zero
+         | <digit>+:whole 'e' <thing i>:e								=> ''.join(whole)+'e'+e
          | <digit>+:whole												=> ''.join(whole)
 
 

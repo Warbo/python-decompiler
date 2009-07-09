@@ -48,7 +48,9 @@ tests = [\
 	Test('Addition','1+2', ['Statement', 'Constant']), \
 	Test('And', '1 and True', ['Name', 'Constant']), \
 	Test('Assign Attribute', 'x.name = "ex"', ['Statement', 'Name']), \
-	Test('Assign Name', 'x = 10', ['Name', 'Constant', 'Assign']), \
+	Test('Assign Name', """x = 10
+del x
+del(y)""", ['Name', 'Constant', 'Assign']), \
 	Test('Assign Tuple', 'x, y, z = 1, 2, "10"', ['Tuple', 'Name', 'Constant', 'Assign']), \
 	Test('Assert', 'assert 10 < 9', ['Compare', 'Constant']), \
 	Test('Assign', 'x = y = 10', ['Name', 'Constant', 'Statement']), \
@@ -75,7 +77,15 @@ class B(A):
 	def __init__(self):
 		pass""", ['Statement']), \
 	Test('Compare', 'x < y and 1 == 5 and 2 > 8', ['Name', 'Constant', 'And']), \
-	Test('Constant', '1', ['Statement']), \
+	Test('Constant', """1
+-5
+3.4
+-12.45
+-8.048e-16
+'SINGLE'
+"DOUBLE"
+'''Triple'''
+"""+'"""SEXTUPLE"""', ['Statement']), \
 	Test('Continue', """for x in range(5):
 	if x == 2:
 		continue
@@ -170,7 +180,10 @@ def g():
 def h():
 	return None
 def i():
-	return 1, 2""", ['Statement']), \
+	return 1, 2
+def j():
+	return 1 / (math.hypot(point_position[0] - position[0], point_position[1] - position[1])**2 + 0.000001)
+""", ['Statement']), \
 	Test('Right Shift', '', ['Statement']), \
 	Test('Slice', """x[5:15]
 y[:10]
@@ -178,7 +191,9 @@ z[a:]""", ['Statement']), \
 	Test('Slice Object', '', ['Statement']), \
 	Test('Statement', 'True', ['Module', 'Name']), \
 	Test('Subtraction', '1-x', ['Constant', 'Name']), \
-	Test('Subscription', 'x[5]', ['Statement']), \
+	Test('Subscription', """x[5]
+del x[y]
+del(y[x])""", ['Statement']), \
 	Test('Try Except', """try:
 	[0,1,2].remove(5)
 except ValueError:
