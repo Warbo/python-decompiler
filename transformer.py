@@ -794,7 +794,7 @@ subscript :i ::= <token 'Subscript('> <thing i>:l <sep i>
 tryexcept :i ::= <token 'TryExcept('> <stmt i+1>:t <sep i> <token '['>
                  <trycontents i>:e <sep i> <none i> <token ')'>			=> \"""try:\n\"""+t+e
                | <token 'TryExcept('> <stmt i+1>:t <sep i> <token '['>
-                 <trycontents i>:e <sep i> <stmt i+1>:s <token ')'>		=> \"""try:\n\"""+t+e+\"""\n\"""+(i*'\t')+'\t'*i+\"""else:\n\"""+s
+                 <trycontents i>:e <sep i> <stmt i+1>:s <token ')'>		=> \"""try:\n\"""+t+e+\"""\n\"""+(i*'\t')+\"""else:\n\"""+s
 
 trycontents :i ::= <token ']'>											=> ''
                  | <sep i> <trycontents i>:t							=> t
@@ -806,7 +806,7 @@ trycontents :i ::= <token ']'>											=> ''
                    <stmt i+1>:e <token ')'> <trycontents i>:c			=> '\t'*i+'except '+x+', '+y+\""":\n\"""+e+c
 
 
-#																		#############################
+# Matches "finally" statements ("do this regardless") after a try/except
 tryfinally :i ::= <token 'TryFinally('> <tryexcept i>:t <sep i>
                                         <stmt i+1>:s <token ')'>		=> t + \"""\n\""" + '\t'*i + '\t'*i+\"""finally:\n\""" + s
 

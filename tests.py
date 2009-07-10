@@ -202,7 +202,14 @@ except ValueError:
 except SyntaxError, e:
 	print "Syntax Error: "+str(e)
 except:
-	print 'Other Error'""", ['Statement']), \
+	print 'Other Error'
+	try:
+		print "Nested"
+	except:
+		print "Nest fail"
+	else:
+		print 'Nest worked'
+""", ['Statement']), \
 	Test('Try Finally', """try:
 	print "x"
 except:
