@@ -889,7 +889,10 @@ sep :i ::= <token ', '>													=> ', '
 
 # Matches a value in quotes, returning the value with no quotes
 # (also see "string")
-quoted :i ::= <token "'''"> <quotetriplesingle i>:q						=> q
+quoted :i ::= <token 'u'> <quote i>:q									=> q
+            | <quote i>:q												=> q
+
+quote :i ::= <token "'''"> <quotetriplesingle i>:q						=> q
             | <token '""'> '"' <quotetripledouble i>:q					=> q
             | <token "'"> <quotesingle i>:q								=> q
             | <token '"'> <quotedouble i>:q								=> q
@@ -909,7 +912,10 @@ quotetripledouble :i ::= '"' '"' '"'									=> ''
 
 # Matches a value in quotes, returning the value and the quotes. For
 # a rule which doesn't return the quotes see "quoted"
-string :i ::= <token "'''"> <stringtriplesingle i>:q					=> "'''"+q+"'''"
+string :i ::= <token 'u'> <str i>:s										=> 'u'+s
+            | <str i>:s													=> s
+
+str :i ::= <token "'''"> <stringtriplesingle i>:q					=> "'''"+q+"'''"
             | <token '""'> '"' <stringtripledouble i>:q					=> '""'+'"'+q+'""'+'"'
             | <token "'"> <stringsingle i>:q							=> "'"+q+"'"
             | <token '"'> <stringdouble i>:q							=> '"'+q+'"'

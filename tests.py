@@ -83,6 +83,7 @@ class B(A):
 -12.45
 -8.048e-16
 10+5j
+u"Unicode"
 'SINGLE'
 "DOUBLE"
 '''Triple'''
