@@ -460,9 +460,10 @@ const :i ::= <token 'Const('> <none i> <token ')'>						=> ''
 # Matches continue (skipping of loop iteration)
 continue :i ::= <token 'Continue()'>									=> 'continue'
 
-
-#																		###################################
-decorators :i ::= ' '
+#Decorators([CallFunc(Getattr(Getattr(Name('dbus'), 'service'), 'signal'), [Keyword('dbus_interface', Const('com.example.Sample')), Keyword('signature', Const('us'))], None, None)])
+# Matches functions used to modify the behaviour of code
+decorators :i ::= <token 'Decorators(['> <thing i>:dec <token '])'>		=> '@'+dec
+                | <token 'Decorators('> <list i>:decs <token ')'>		=> '@'+(\"""\n\"""+('\t'*i)+'@').join(decs)
 
 
 # Matches a dictionary datastructure
@@ -524,27 +525,30 @@ fromcontents :i ::= <token ']'>											=> ''
 
 # Matches a Python function definition
 function :i ::= <token 'Function('>
-                <thing i> <sep i>
+                <functiondecorators i>:decs <sep i>
                 <quoted i>:n <sep i> <token '['>
                 <functioncontents i>:a <sep i> <token '['>
                 <functioncontents i>:v <sep i> <thing i>:f <sep i>
                 <none i> <sep i>
-                <stmt i+1>:s <token ')'>								=> 'def '+n+'('+match_args(a,v,flag=f)+\"""):\n\"""+s
-              | <token 'Function('> <none i> <sep i> <quoted i>:n
-                <sep i> <token '()'> <sep i> <token '()'> <sep i>
-                <thing i>:f <sep i> <none i> <sep i> <stmt i+1>:s
-                <token ')'>												=> 'def '+n+\"""():\n\"""+s
+                <stmt i+1>:s <token ')'>								=> decs+\"""\n\"""+('\t'*i)+'def '+n+'('+match_args(a,v,flag=f)+\"""):\n\"""+s
+              | <token 'Function('> <functiondecorators i>:decs <sep i>
+                <quoted i>:n <sep i> <token '()'> <sep i> <token '()'>
+                <sep i> <thing i>:f <sep i> <none i> <sep i>
+                <stmt i+1>:s <token ')'>								=> decs+'def '+n+\"""():\n\"""+s
               | <token 'Function('>
-                <thing i> <sep i>
+                <functiondecorators i>:decs <sep i>
                 <quoted i>:n <sep i> <token '['>
                 <functioncontents i>:a <sep i> <token '['>
                 <functioncontents i>:v <sep i> <thing i>:f <sep i>
                 <string i>:d <sep i>
-                <stmt i+1>:s <token ')'>								=> 'def '+n+'('+match_args(a,v,flag=f)+\"""):\n\"""+((i+1)*'\t')+d+\"""\n\"""+s
-              | <token 'Function('> <thing i> <sep i> <quoted i>:n
-                <sep i> <token '()'> <sep i> <token '()'> <sep i>
-                <thing i>:f <sep i> <string i>:d <sep i> <stmt i+1>:s
-                <token ')'>												=> 'def '+n+\"""():\n\"""+((i+1)*'\t')+d+\"""\n\"""+s
+                <stmt i+1>:s <token ')'>								=> decs+'def '+n+'('+match_args(a,v,flag=f)+\"""):\n\"""+((i+1)*'\t')+d+\"""\n\"""+s
+              | <token 'Function('> <functiondecorators i> <sep i>
+                <quoted i>:n <sep i> <token '()'> <sep i> <token '()'>
+                <sep i> <thing i>:f <sep i> <string i>:d <sep i>
+                <stmt i+1>:s <token ')'>								=> decs+'def '+n+\"""():\n\"""+((i+1)*'\t')+d+\"""\n\"""+s
+
+functiondecorators :i ::= <decorators i>:decorators						=> decorators + \"""\n\"""+('\t'*i)
+                        | <none i>										=> ''
 
 functioncontents :i ::= <token ']'>										=> []
                       | <arg i>:t <token ']'>							=> [t]

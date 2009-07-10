@@ -91,7 +91,16 @@ class B(A):
 	if x == 2:
 		continue
 	print str(x)""", ['Statement', 'Name', 'Function Call', 'Compare', 'Constant']), \
-	Test('Decorators', '', ['Statement']), \
+	Test('Decorators', """
+def a(g):
+	return g
+@a
+def f(x,y):
+	print x+y
+@dbus.service.signal(dbus_interface='com.example.Sample', signature='us')
+def s(self, thing1, thing2):
+	print str(thing1)+str(thing2)
+""", ['Statement']), \
 	Test('Dictionary', """x = 5
 a = "s"
 y = {a:1, 5:x}
