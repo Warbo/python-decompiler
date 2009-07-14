@@ -119,7 +119,8 @@ y = {a:1, 5:x}
 		print str(a*b)""", ['Statement']), \
 	Test('From', """from os import get_cwd
 from sys import exit as Exit
-from pygame import draw, mixer as sound, surface""", ['Statement']), \
+from pygame import draw, mixer as sound, surface
+from .. import test""", ['Statement']), \
 	Test('Function', """def f(x, y=False, z="TEST", a="ING"):
 	if y:
 		print x
@@ -181,8 +182,14 @@ x = []""", ['Statement']), \
 	Test('Or', '2<5 or True', ['Statement']), \
 	Test('Pass', 'pass', ['Statement']), \
 	Test('Power', '5**0.2', ['Statement']), \
-	Test('Print Inline', 'print "TEST",', ['Statement']), \
-	Test('Print New Line', 'print "TEST"', ['Statement']), \
+	Test('Print Inline', """print "TEST",
+print "1: %s 2: %s" % (a, b),
+print '  %-15s %s' % (cmd, description),""", ['Statement']), \
+	Test('Print New Line', """print "TEST"
+print "1: %s 2: %s" % (a, b)
+print '  %-15s %s' % (cmd, description)
+print
+""", ['Statement']), \
 	Test('Raise', 'raise ValueError()', ['Statement']), \
 	Test('Return', """def f(x):
 	return x*x

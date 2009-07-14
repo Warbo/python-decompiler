@@ -48,6 +48,14 @@ def match_args(names, values, flag=0):
 	out = ', '.join(matched)
 	return out
 
+def from_flag(flag, module):
+	if flag == '0':
+		return module
+	elif flag == '2':
+		return '..'
+	else:
+		return 'UNKNOWN "FROM" FLAG: '+flag
+
 gram = """
 # This grammar matches against the ASTs produced by Python 2.x's
 # compiler module. It produces Python code to match the AST.
@@ -513,7 +521,7 @@ for :i ::= <token 'For('> <assname i>:a <sep i> <thing i>:c <sep i>
 
 # Matches namespace injections
 from :i ::= <token 'From('> <quoted i>:m <sep i> <token '['>
-            <fromcontents i>:c <sep i> <thing i>:X <token ')'>			=> 'from '+m+' import '+c
+            <fromcontents i>:c <sep i> <thing i>:f <token ')'>			=> 'from '+from_flag(f,m)+' import '+c
 
 fromcontents :i ::= <token ']'>											=> ''
                   | <token '('> <quoted i>:m <sep i>
@@ -731,7 +739,8 @@ printcontents :i ::= <token ']'>										=> ''
 
 
 # Matches print
-printnl :i ::= <token 'Printnl(['> <printcontents i>:p <sep i>
+printnl :i ::= <token 'Printnl([], '> <thing i> <token ')'>				=> 'print'
+             | <token 'Printnl(['> <printcontents i>:p <sep i>
                                   <thing i>:x <token ')'>				=> 'print('+p+')'
 
 
@@ -951,11 +960,16 @@ listval :i ::= <token ']'>												=> ''
 none :i ::= <token 'None'>												=> 'None'
 """
 
-g = OMeta.makeGrammar(strip_comments(gram), {'match_args':match_args})
+g = OMeta.makeGrammar(strip_comments(gram), {'match_args':match_args, 'from_flag':from_flag})
 
 if __name__ == '__main__':
 	try:
+		mode = "none"
 		if sys.argv[2].strip() == "list":
+			mode = "list"
+		elif sys.argv[2].strip() == "finderror":
+			mode = "finderror"
+		if not mode is "none":
 			ins = open(sys.argv[1], 'r')
 			parsefiles = []
 
@@ -966,29 +980,42 @@ if __name__ == '__main__':
 			o1 = open('DONTWORK', 'w')
 			o2 = open('DOWORK', 'w')
 			o3 = open('REC', 'w')
+			o4 = open('SYN', 'w')
 
-			for toparse in parsefiles:
-				print toparse[-4]
+			for parse_number, toparse in enumerate(parsefiles):
+				print str(len(parsefiles)-parse_number)
 				try:
 					tree = str(compiler.parseFile(toparse))
 				except SyntaxError:
-					print toparse + " SyntaxError"
+					o4.write(toparse+'\n')
+					continue
+				except IOError:
+					o4.write(toparse+'\n')
+					continue
 				ast_tree = g(tree)
 				try:
 					generated = ast_tree.apply('any')
 				except RuntimeError:
-					o3.write(toparse)
+					o3.write(toparse+'\n')
 					continue
 
 				try:
 					assert str(compiler.parse(generated)) == tree
-					o2.write(toparse)
+					o2.write(toparse+'\n')
+					if mode == "finderror":
+						sys.exit()
 				except AssertionError:
-					o1.write(toparse)
+					o1.write(toparse+'\n')
+					if mode == "finderror":
+						sys.exit()
 				except IndentationError:
-					o1.write(toparse)
+					o1.write(toparse+'\n')
+					if mode == "finderror":
+						sys.exit()
 				except SyntaxError:
-					o1.write(toparse)
+					o1.write(toparse+'\n')
+					if mode == "finderror":
+						sys.exit()
 			sys.exit()
 	except IndexError:
 		try:
