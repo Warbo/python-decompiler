@@ -217,7 +217,9 @@ def j():
 	Test('Slice', """x[5:15]
 y[:10]
 z[a:]""", ['Statement']), \
-	Test('Slice Object', '', ['Statement']), \
+	Test('Slice Object', """
+x[start:end:step]
+""", ['Statement']), \
 	Test('Statement', 'True', ['Module', 'Name']), \
 	Test('Subtraction', '1-x', ['Constant', 'Name']), \
 	Test('Subscription', """x[5]
@@ -258,7 +260,7 @@ while x < 5:
 	print str(x)
 	x += 1""", ['Statement']), \
 	Test('With', '', ['Statement']), \
-	Test('Yield', '', ['Statement']) \
+	Test('Yield', 'yield x', ['Statement']) \
 ]
 
 for test in tests:

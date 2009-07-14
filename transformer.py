@@ -792,8 +792,12 @@ slice :i ::= <token 'Slice('> <thing i>:t <sep i> <quoted i> <sep i>
              <thing i>:l <sep i> <thing i>:r <token ')'>				=> t+'['+l+':'+r+']'
 
 
-#																		########################
-sliceobj :i ::= ' '
+# Matches more advanced iterator slicing (eg. x[start:end:step])
+sliceobj :i ::= <token 'Sliceobj(['> <sliceobjcontents i>:s <token ')'>	=> s
+
+sliceobjcontents :i ::= <token ']'>										=> ''
+                      | <sep i> <sliceobjcontents i>:s					=> ':'+s
+                      | <thing i>:t <sliceobjcontents i>:s				=> t+s
 
 
 # Matches a series of Python commands
@@ -878,8 +882,8 @@ while :i ::= <token 'While('> <thing i>:t <sep i>
 with :i ::= ' '
 
 
-#																		#########################
-yield :i ::= ' '
+# Matches 'yield' statements
+yield :i ::= <token 'Yield('> <thing i>:t <token ')'>					=> 'yield '+t
 
 
 ## The following match common value formats used in the above
@@ -1014,32 +1018,39 @@ if __name__ == '__main__':
 					tree = str(compiler.parseFile(toparse))
 				except SyntaxError:
 					o4.write(toparse+'\n')
+					o4.flush()
 					continue
 				except IOError:
 					o4.write(toparse+'\n')
+					o4.flush()
 					continue
 				ast_tree = g(tree)
 				try:
 					generated = ast_tree.apply('any')
 				except RuntimeError:
 					o3.write(toparse+'\n')
+					o3.flush()
 					continue
 
 				try:
 					assert str(compiler.parse(generated)) == tree
 					o2.write(toparse+'\n')
+					o2.flush()
 					if mode == "finderror":
 						sys.exit()
 				except AssertionError:
 					o1.write(toparse+'\n')
+					o1.flush()
 					if mode == "finderror":
 						sys.exit()
 				except IndentationError:
 					o1.write(toparse+'\n')
+					o1.flush()
 					if mode == "finderror":
 						sys.exit()
 				except SyntaxError:
 					o1.write(toparse+'\n')
+					o1.flush()
 					if mode == "finderror":
 						sys.exit()
 			sys.exit()
