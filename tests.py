@@ -52,7 +52,10 @@ tests = [\
 del x
 del(y)""", ['Name', 'Constant', 'Assign']), \
 	Test('Assign Tuple', 'x, y, z = 1, 2, "10"', ['Tuple', 'Name', 'Constant', 'Assign']), \
-	Test('Assert', 'assert 10 < 9', ['Compare', 'Constant']), \
+	Test('Assert', """
+assert 10 < 9
+assert x < 5, "x is not less than five"
+""", ['Compare', 'Constant']), \
 	Test('Assign', 'x = y = 10', ['Name', 'Constant', 'Statement']), \
 	Test('Augmenting Assign', 'x += 10', ['Statement', 'Name', 'Constant']), \
 	Test('Backquote', '', ['Statement']), \

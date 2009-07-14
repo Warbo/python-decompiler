@@ -377,10 +377,12 @@ asstuplecontents :i ::= <token ']'>										=> ''
                       | <sep i> <asstuplecontents i>:l					=> ', '+l
                       | <thing i>:t <asstuplecontents i>:l				=> t+l
 
-
+#Assert(Compare(Name('stuff'), [('is not', Name('None'))]), Mod((Const("Couldn't find the module '%s'"), Tuple([Name('base_name')]))))
 # Matches an assertion
 assert :i ::= <token 'Assert('> <thing i>:t <sep i>
                                 <none i> <token ')'>					=> 'assert '+t
+            | <token 'Assert('> <thing i>:t <sep i> <thing i>:m
+              <token ')'>												=> 'assert '+t+', '+m
 
 
 # Matches a value binding
