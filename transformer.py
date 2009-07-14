@@ -765,8 +765,12 @@ printnl :i ::= <token 'Printnl([], '> <none i> <token ')'>				=> 'print'
 
 
 # Matches exception raising
-raise :i ::= <token 'Raise('> <thing i>:t <sep i> <none i> <sep i>
+raise :i ::= <token 'Raise('> <none i> <sep i> <none i> <sep i> <none i>
+             <token ')'>												=> 'raise'
+           | <token 'Raise('> <thing i>:t <sep i> <none i> <sep i>
                               <none i> <token ')'>						=> 'raise '+t
+           | <token 'Raise('> <thing i>:t <sep i> <thing i>:a <sep i>
+                              <thing i>:b <token ')'>					=> 'raise '+t+', '+a+', '+b
 
 
 # Matches return statements

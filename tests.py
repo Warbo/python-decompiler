@@ -198,7 +198,10 @@ print '  %-15s %s' % (cmd, description)
 print
 print >> x, 'thing'
 """, ['Statement']), \
-	Test('Raise', 'raise ValueError()', ['Statement']), \
+	Test('Raise', """raise ValueError()
+raise AssertionError('%s: %s' % (a, b)), None, x
+raise
+""", ['Statement']), \
 	Test('Return', """def f(x):
 	return x*x
 def g():
