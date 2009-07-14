@@ -120,7 +120,9 @@ y = {a:1, 5:x}
 	Test('From', """from os import get_cwd
 from sys import exit as Exit
 from pygame import draw, mixer as sound, surface
-from .. import test""", ['Statement']), \
+from .. import test
+from ..subdir import something
+""", ['Statement']), \
 	Test('Function', """def f(x, y=False, z="TEST", a="ING"):
 	if y:
 		print x
@@ -232,7 +234,12 @@ except:
 except:
 	print "y"
 finally:
-	print 'z'""", ['Statement']), \
+	print 'z'
+try:
+	print "a"
+finally:
+	print 'b'
+""", ['Statement']), \
 	Test('Tuple', """(a, b, (c, d))
 x=()""", ['Name']), \
 	Test('Unary Addition', '+3', ['Statement']), \

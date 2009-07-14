@@ -52,7 +52,7 @@ def from_flag(flag, module):
 	if flag == '0':
 		return module
 	elif flag == '2':
-		return '..'
+		return '..'+module
 	else:
 		return 'UNKNOWN "FROM" FLAG: '+flag
 
@@ -818,10 +818,12 @@ trycontents :i ::= <token ']'>											=> ''
                  | <token '('> <thing i>:x <sep i> <thing i>:y <sep i>
                    <stmt i+1>:e <token ')'> <trycontents i>:c			=> '\t'*i+'except '+x+', '+y+\""":\n\"""+e+c
 
-
+#TryFinally(<Stmt><sep> Stmt())
 # Matches "finally" statements ("do this regardless") after a try/except
 tryfinally :i ::= <token 'TryFinally('> <tryexcept i>:t <sep i>
-                                        <stmt i+1>:s <token ')'>		=> t + \"""\n\""" + '\t'*i + '\t'*i+\"""finally:\n\""" + s
+                                        <stmt i+1>:s <token ')'>		=> t + \"""\n\""" + '\t'*i + \"""finally:\n\""" + s
+                | <token 'TryFinally('> <stmt i+1>:s1 <sep i>
+                  <stmt i+1>:s2 <token ')'>								=> 'try:'+s1+\"""\n\"""+('\t'*i)+\"""finally:\n\"""+s2
 
 
 # Matches a tuple datastructure
