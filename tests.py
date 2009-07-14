@@ -67,7 +67,11 @@ while True:
 """, ['Statement']), \
 	Test('Function Call', """str(x)
 f(*[1,2,3])
-g(*x*2)""", ['Statement', 'Name']), \
+g(*x*2)
+h(**x)
+i(a, b=5, *c, **d)
+j(*a, **b)
+""", ['Statement', 'Name']), \
 	Test('Class', """class A(object):
 	def __init__(self):
 		pass
@@ -186,11 +190,13 @@ x = []""", ['Statement']), \
 	Test('Power', '5**0.2', ['Statement']), \
 	Test('Print Inline', """print "TEST",
 print "1: %s 2: %s" % (a, b),
-print '  %-15s %s' % (cmd, description),""", ['Statement']), \
+print '  %-15s %s' % (cmd, description),
+print >> x, "thing",""", ['Statement']), \
 	Test('Print New Line', """print "TEST"
 print "1: %s 2: %s" % (a, b)
 print '  %-15s %s' % (cmd, description)
 print
+print >> x, 'thing'
 """, ['Statement']), \
 	Test('Raise', 'raise ValueError()', ['Statement']), \
 	Test('Return', """def f(x):

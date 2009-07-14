@@ -421,16 +421,31 @@ break :i ::= <token 'Break()'>											=> 'break'
 
 
 # Matches a function call
-callfunc :i ::= <token 'CallFunc'> <callfunccontents i>:c				=> c
+callfunc :i ::= <token 'CallFunc('> <thing i>:name <sep i> <token '['>
+                <callfunccontents i>:c									=> name+'('+c
 
-callfunccontents :i ::= <token '('> <thing i>:n <sep i>
-                                    <token '['> <callfuncargs i>:a <sep i>
-                                    <none i>:list <sep i>
-                                    <thing i>:four <token ')'>			=> n+'('+a+')'
-                      | <token '('> <thing i>:n <sep i>
-                                    <token '['> <callfuncargs i>:a <sep i>
-                                    <thing i>:list <sep i>
-                                    <thing i>:four <token ')'>			=> n+'('+a+'*'+list+')'
+                      # Catch empty arguments first
+callfunccontents :i ::= <token ']'> <sep i> <none i> <sep i> <none i>
+                        <token ')'>										=> ')'
+                      # Now catch either an argument lists or a dictionary
+                      | <token ']'> <sep i> <thing i>:list <sep i>
+                        <none i> <token ')'>							=> '*'+list+')'
+                      | <token ']'> <sep i> <none i> <sep i>
+                        <thing i>:kw <token ')'>						=> '**'+kw+')'
+                      # Now catch both (since "None" is a "thing" we need to catch empty args with the above 3)
+                      | <token ']'> <sep i> <thing i>:list <sep i>
+                        <thing i>:kw <token ')'>						=> '*'+list+', **'+kw+')'
+                      # Now do the same, but including regular arguments, starting with no list or dictionary
+                      | <callfuncargs i>:a <sep i>
+                        <none i>:list <sep i> <none i>:kw <token ')'>	=> a+')'
+                      # Now catch arguments plus a list or dictionary
+                      | <callfuncargs i>:a <sep i>
+                        <thing i>:list <sep i> <none i>:kw <token ')'>	=> a+', *'+list+')'
+                      | <callfuncargs i>:a <sep i> <none i>:list
+                        <sep i> <thing i>:kw <token ')'>				=> a+', **'+kw+')'
+                      # Finally catch all three
+                      | <callfuncargs i>:a <sep i> <thing i>:list
+                        <sep i> <thing i>:kw <token ')'>				=> a+', *'+list+', **'+kw+')'
 
 callfuncargs :i ::= <token ']'>											=> ''
                   | <sep i> <callfuncargs i>:a							=> ', '+a
@@ -728,9 +743,12 @@ pass :i ::= <token 'Pass()'>											=> 'pass'
 power :i ::= <token 'Power(('> <thing i>:o <sep i>
                               <thing i>:p <token '))'>					=> o+'**'+p
 
+# Print([Const('thing')], Name('x'))]))
 # Matches print with no newline
 print :i ::= <token 'Print(['> <printcontents i>:p <sep i>
-                               <thing i>:x <token ')'>					=> 'print('+p+'),'
+                               <none i> <token ')'>						=> 'print('+p+'),'
+           | <token 'Print(['> <printcontents i>:p <sep i>
+                               <thing i>:out <token ')'>				=> 'print >> '+out+', ('+p+'),'
 
 printcontents :i ::= <token ']'>										=> ''
                    | <quoted i>:q <printcontents i>:p					=> "'"+q+"'"+p
@@ -739,9 +757,11 @@ printcontents :i ::= <token ']'>										=> ''
 
 
 # Matches print
-printnl :i ::= <token 'Printnl([], '> <thing i> <token ')'>				=> 'print'
+printnl :i ::= <token 'Printnl([], '> <none i> <token ')'>				=> 'print'
              | <token 'Printnl(['> <printcontents i>:p <sep i>
-                                  <thing i>:x <token ')'>				=> 'print('+p+')'
+                                  <none i> <token ')'>					=> 'print('+p+')'
+             | <token 'Printnl(['> <printcontents i>:p <sep i>
+                                  <thing i>:out <token ')'>				=> 'print >> '+out+', ('+p+')'
 
 
 # Matches exception raising
@@ -823,7 +843,7 @@ trycontents :i ::= <token ']'>											=> ''
 tryfinally :i ::= <token 'TryFinally('> <tryexcept i>:t <sep i>
                                         <stmt i+1>:s <token ')'>		=> t + \"""\n\""" + '\t'*i + \"""finally:\n\""" + s
                 | <token 'TryFinally('> <stmt i+1>:s1 <sep i>
-                  <stmt i+1>:s2 <token ')'>								=> 'try:'+s1+\"""\n\"""+('\t'*i)+\"""finally:\n\"""+s2
+                  <stmt i+1>:s2 <token ')'>								=> \"""try:\n\"""+s1+\"""\n\"""+('\t'*i)+\"""finally:\n\"""+s2
 
 
 # Matches a tuple datastructure
