@@ -51,7 +51,10 @@ tests = [\
 	Test('Assign Name', """x = 10
 del x
 del(y)""", ['Name', 'Constant', 'Assign']), \
-	Test('Assign Tuple', 'x, y, z = 1, 2, "10"', ['Tuple', 'Name', 'Constant', 'Assign']), \
+	Test('Assign Tuple', """
+x, y, z = 1, 2, "10"
+del a, b, c
+""", ['Tuple', 'Name', 'Constant', 'Assign']), \
 	Test('Assert', """
 assert 10 < 9
 assert x < 5, "x is not less than five"
@@ -204,6 +207,8 @@ print >> x, 'thing'
 	Test('Raise', """raise ValueError()
 raise AssertionError('%s: %s' % (a, b)), None, x
 raise
+raise Thing(), something
+raise Thing(), a, b
 """, ['Statement']), \
 	Test('Return', """def f(x):
 	return x*x

@@ -83,6 +83,9 @@ thing :i ::= <string i>:s												=> s
 
            ## The following are AST nodes
 
+           #
+           | <del i>:d													=> d
+
            # "add" is addition
            | <add i>:a													=> '('+a+')'
 
@@ -366,8 +369,6 @@ assname :i ::= <token 'AssName'> <assnamecontents i>:a					=> a
 
 assnamecontents :i ::= <token '('> <quoted i>:name <sep i>
                                    <token "'OP_ASSIGN'"> <token ')'>	=> name
-                     | <token '('> <quoted i>:name <sep i>
-                                   <token "'OP_DELETE'"> <token ')'>	=> 'del('+name+')'
 
 
 # Matches binding multiple values at once
@@ -485,11 +486,27 @@ const :i ::= <token 'Const('> <none i> <token ')'>						=> ''
 # Matches continue (skipping of loop iteration)
 continue :i ::= <token 'Continue()'>									=> 'continue'
 
-#Decorators([CallFunc(Getattr(Getattr(Name('dbus'), 'service'), 'signal'), [Keyword('dbus_interface', Const('com.example.Sample')), Keyword('signature', Const('us'))], None, None)])
+
 # Matches functions used to modify the behaviour of code
 decorators :i ::= <token 'Decorators(['> <thing i>:dec <token '])'>		=> '@'+dec
                 | <token 'Decorators('> <list i>:decs <token ')'>		=> '@'+(\"""\n\"""+('\t'*i)+'@').join(decs)
 
+
+# Matches deletions
+del :i ::= <deltuple i>:t												=> 'del '+t
+         | <delname i>:n												=> 'del '+n
+
+
+delname :i ::= <token 'AssName('> <delnamecontents i>:a					=> a
+
+delnamecontents :i ::= <quoted i>:name <sep i>
+                       <token "'OP_DELETE'"> <token ')'>				=> name
+
+deltuple :i ::= <token 'AssTuple(['> <deltuplecontents i>:a <token ')'>	=> a
+
+deltuplecontents :i ::= <token ']'>										=> ''
+                      | <sep i> <deltuplecontents i>:l					=> ', '+l
+                      | <delname i>:t <deltuplecontents i>:l			=> t+l
 
 # Matches a dictionary datastructure
 dict :i ::= <token 'Dict(())'>											=> '{}'
@@ -771,6 +788,8 @@ raise :i ::= <token 'Raise('> <none i> <sep i> <none i> <sep i> <none i>
              <token ')'>												=> 'raise'
            | <token 'Raise('> <thing i>:t <sep i> <none i> <sep i>
                               <none i> <token ')'>						=> 'raise '+t
+           | <token 'Raise('> <thing i>:t <sep i> <thing i>:a <sep i>
+                              <none i> <token ')'>						=> 'raise '+t+', '+a
            | <token 'Raise('> <thing i>:t <sep i> <thing i>:a <sep i>
                               <thing i>:b <token ')'>					=> 'raise '+t+', '+a+', '+b
 
