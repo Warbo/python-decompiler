@@ -491,11 +491,20 @@ continue :i ::= <token 'Continue()'>									=> 'continue'
 decorators :i ::= <token 'Decorators(['> <thing i>:dec <token '])'>		=> '@'+dec
                 | <token 'Decorators('> <list i>:decs <token ')'>		=> '@'+(\"""\n\"""+('\t'*i)+'@').join(decs)
 
-
+#Module(None, Stmt([
+#AssName('x', 'OP_DELETE'),
+#AssName('y', 'OP_DELETE'),
+#AssTuple([AssName('a', 'OP_DELETE'), AssName('b', 'OP_DELETE'), AssName('c', 'OP_DELETE')]),
+#Subscript(Name('x'), 'OP_DELETE', [Name('a')]),
+#Slice(Name('x'), 'OP_DELETE', Name('a'), Name('b')), Subscript(Name('x'), 'OP_DELETE', [Sliceobj([Name('a'), Name('b'), Name('c')])])]))
 # Matches deletions
-del :i ::= <deltuple i>:t												=> 'del '+t
-         | <delname i>:n												=> 'del '+n
+del :i ::= <delcontents i>:c											=> 'del '+c
 
+delcontents :i ::= <deltuple i>:t										=> t
+                 | <delname i>:n										=> n
+                 | <delsub i>:s											=> s
+                 | <delslice i>:s										=> s
+                 | <delattr i>:a										=> a
 
 delname :i ::= <token 'AssName('> <delnamecontents i>:a					=> a
 
@@ -506,7 +515,24 @@ deltuple :i ::= <token 'AssTuple(['> <deltuplecontents i>:a <token ')'>	=> a
 
 deltuplecontents :i ::= <token ']'>										=> ''
                       | <sep i> <deltuplecontents i>:l					=> ', '+l
-                      | <delname i>:t <deltuplecontents i>:l			=> t+l
+                      | <delcontents i>:t <deltuplecontents i>:l		=> t+l
+
+delsub :i ::= <token 'Subscript('> <thing i>:l <sep i>
+                 <token "'OP_DELETE'"> <sep i>
+                 <token '['> <thing i>:s <token '])'>					=> l+'['+s+']'
+
+delslice :i ::= <token 'Slice('> <thing i>:t <sep i> <token "'OP_DELETE'">
+                <sep i> <none i> <sep i> <none i> <token ')'>			=> t+'[:]'
+           | <token 'Slice('> <thing i>:t <sep i> <token "'OP_DELETE'">
+             <sep i> <none i> <sep i> <thing i>:r <token ')'>			=> t+'[:'+r+']'
+           | <token 'Slice('> <thing i>:t <sep i> <token "'OP_DELETE'">
+             <sep i> <thing i>:l <sep i> <none i> <token ')'>			=> t+'['+l+':]'
+           | <token 'Slice('> <thing i>:t <sep i> <token "'OP_DELETE'">
+             <sep i> <thing i>:l <sep i> <thing i>:r <token ')'>		=> t+'['+l+':'+r+']'
+
+delattr :i ::= <token 'AssAttr('> <thing i>:l <sep i>
+               <quoted i>:a <sep i> <token "'OP_DELETE'"> <token ')'>	=> l+'.'+a
+
 
 # Matches a dictionary datastructure
 dict :i ::= <token 'Dict(())'>											=> '{}'
@@ -839,9 +865,6 @@ subcontents :i ::= <token '(('> <thing i>:left <sep i>
 
 # Matches indexing of an object (eg. mylist[5])
 subscript :i ::= <token 'Subscript('> <thing i>:l <sep i>
-                 <token "'OP_DELETE'"> <sep i>
-                 <token '['> <thing i>:s <token '])'>					=> 'del('+l+'['+s+'])'
-               | <token 'Subscript('> <thing i>:l <sep i>
                  <token "'OP_APPLY'"> <sep i>
                  <token '['> <thing i>:s <token '])'>					=> l+'['+s+']'
                | <token 'Subscript('> <thing i>:l <sep i>

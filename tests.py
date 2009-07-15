@@ -49,11 +49,9 @@ tests = [\
 	Test('And', '1 and True', ['Name', 'Constant']), \
 	Test('Assign Attribute', 'x.name = "ex"', ['Statement', 'Name']), \
 	Test('Assign Name', """x = 10
-del x
-del(y)""", ['Name', 'Constant', 'Assign']), \
+""", ['Name', 'Constant', 'Assign']), \
 	Test('Assign Tuple', """
 x, y, z = 1, 2, "10"
-del a, b, c
 """, ['Tuple', 'Name', 'Constant', 'Assign']), \
 	Test('Assert', """
 assert 10 < 9
@@ -112,6 +110,16 @@ def f(x,y):
 def s(self, thing1, thing2):
 	print str(thing1)+str(thing2)
 """, ['Statement']), \
+	Test('Deletion', """
+del x
+del(y)
+del a, b, c
+del x[a]
+del x[a:b]
+del x[a:b:c]
+del a, b[x], c[x:y], d[x:y:z], e.a
+del e.a
+""", ['Statement', 'Name']), \
 	Test('Dictionary', """x = 5
 a = "s"
 y = {a:1, 5:x}
