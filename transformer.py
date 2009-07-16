@@ -576,8 +576,13 @@ floordiv :i ::= ' '
 # Matches for loops
 for :i ::= <token 'For('> <assname i>:a <sep i> <thing i>:c <sep i>
                           <stmt i+1>:s <sep i> <none i> <token ')'>		=> 'for '+a+' in '+c+\""":\n\"""+s
+         | <token 'For('> <assname i>:a <sep i> <thing i>:c <sep i>
+                          <stmt i+1>:s <sep i> <stmt i+1>:e <token ')'>	=> 'for '+a+' in '+c+\""":\n\"""+s+\"""\n\"""+(i*'\t')+\"""else:\n\"""+e
          | <token 'For('> <asstuple i>:a <sep i> <thing i>:c <sep i>
                           <stmt i+1>:s <sep i> <none i> <token ')'>		=> 'for '+a+' in '+c+\""":\n\"""+s
+         | <token 'For('> <asstuple i>:a <sep i> <thing i>:c <sep i>
+                          <stmt i+1>:s <sep i> <stmt i+1>:e <token ')'>	=> 'for '+a+' in '+c+\""":\n\"""+s+\"""\n\"""+(i*'\t')+\"""else:\n\"""+e
+
 
 # Matches namespace injections
 from :i ::= <token 'From('> <quoted i>:m <sep i> <token '['>
@@ -630,7 +635,7 @@ arg :i ::= <quoted i>:q													=> q
 
 
 # A list-generating expression
-genexpr :i ::= <token 'GenExpr('> <thing i>:inner <token ')'>			=> inner
+genexpr :i ::= <token 'GenExpr('> <thing i>:inner <token ')'>			=> '('+inner+')'
 
 
 # The source in a list-generating expression
@@ -788,25 +793,36 @@ pass :i ::= <token 'Pass()'>											=> 'pass'
 power :i ::= <token 'Power(('> <thing i>:o <sep i>
                               <thing i>:p <token '))'>					=> o+'**'+p
 
-# Print([Const('thing')], Name('x'))]))
+
 # Matches print with no newline
-print :i ::= <token 'Print(['> <printcontents i>:p <sep i>
-                               <none i> <token ')'>						=> 'print('+p+'),'
+print :i ::= <token 'Print(['> <thing i>:p <token ']'> <sep i>
+                               <none i> <token ')'>						=> 'print '+p+','
+           | <token 'Print(['> <thing i>:p <token ']'> <sep i>
+                               <printout i>:out <token ')'>				=> 'print >> '+out+', '+p+','
            | <token 'Print(['> <printcontents i>:p <sep i>
-                               <thing i>:out <token ')'>				=> 'print >> '+out+', ('+p+'),'
+                               <none i> <token ')'>						=> 'print '+p+','
+           | <token 'Print(['> <printcontents i>:p <sep i>
+                               <printout i>:out <token ')'>				=> 'print >> '+out+', '+p+','
 
 printcontents :i ::= <token ']'>										=> ''
-                   | <quoted i>:q <printcontents i>:p					=> "'"+q+"'"+p
+                   | <string i>:s <printcontents i>:p					=> s+p
                    | <sep i> <printcontents i>:p						=> ', '+p
                    | <thing i>:t <printcontents i>:p					=> t+p
+
+printout :i ::= <none i>												=> ''
+              | <thing i>:t												=> t
 
 
 # Matches print
 printnl :i ::= <token 'Printnl([], '> <none i> <token ')'>				=> 'print'
+             | <token 'Printnl(['> <thing i>:p <token ']'> <sep i>
+               <none i> <token ')'>										=> 'print '+p
+             | <token 'Printnl(['> <thing i>:p <token ']'> <sep i>
+               <printout i>:o <token ')'>								=> 'print >> '+o+', '+p
              | <token 'Printnl(['> <printcontents i>:p <sep i>
-                                  <none i> <token ')'>					=> 'print('+p+')'
+               <none i> <token ')'>										=> 'print '+p
              | <token 'Printnl(['> <printcontents i>:p <sep i>
-                                  <thing i>:out <token ')'>				=> 'print >> '+out+', ('+p+')'
+               <printout i>:o <token ')'>								=> 'print >> '+o+', '+p
 
 
 # Matches exception raising
@@ -1032,6 +1048,67 @@ listval :i ::= <token ']'>												=> ''
 
 # Matches Python's null object
 none :i ::= <token 'None'>												=> 'None'
+
+## The following contain Python's precedence rules
+## Backquote
+#prec1 :i ::= <backquote i>:b											=> b
+## Dictionary definition
+#prec2 :i ::= <dict i>:d													=> d
+## List definition
+#prec3 :i ::= <listnode i>:l												=> l
+## Tuple definition and bindings (assign and delete)
+#prec4 :i ::= <tuplenode i>:t											=> t
+#           | <del i>:d													=> d
+#           | <assign i>:a												=> a
+#           | <asstuple i>:a												=> a
+#           | <assname i>:a												=> a
+#           | <assattr i>:a												=> a
+## Function calls
+#prec5 :i ::= <callfunc i>:c												=> c
+## Slices
+#prec6 :i ::= <slice i>:s												=> s
+#           | <sliceobj i>:s												=> s
+## Subscription
+#prec7 :i ::= <subscription i>:s											=> s
+## Attribute reference
+#prec8 :i ::= <getattr i>:g												=> g
+## Exponentiation
+#prec9 :i ::= <power i>:p												=> p
+## Bitwise NOT
+#prec10 :i ::= <bitwisenot i>:b											=> b
+## Positive and negative
+#prec11 :i ::= <unaryadd i>:u											=> u
+#            | <unarysub i>:u											=> u
+## Multiplication, division and remainder
+#prec12 :i ::= <mul i>:m													=> m
+#            | <div i>:d													=> d
+#            | <mod i>:m													=> m
+## Addition and subtraction
+#prec13 :i ::= <add i>:a													=> a
+#            | <sub i>:s													=> s
+## Shifts
+#prec14 :i ::= <leftshift i>:l											=> l
+#            | <rightshift i>:r											=> r
+## Bitwise AND
+#prec15 :i ::= <bitwiseand i>:b											=> b
+## Bitwise XOR
+#prec16 :i ::= <bitwisexor i>:b											=> b
+## Bitwise OR
+#prec17 :i ::= <bitwiseor i>:b											=> b
+## Comparisons
+#prec18 :i ::= <compare i>:c												=> c
+## Identity tests
+##prec19 :i ::= <>:=>
+## Membership tests
+##prec20 :i ::= <>:=>
+## Boolean NOT
+#prec21 :i ::= <not i>:n													=> n
+## Boolean AND
+#prec22 :i ::= <and i>:a													=> a
+## Boolean OR
+#prec23 :i ::= <or i>:o													=> o
+## Lambda
+#prec24 :i ::= <lambda i>:l												=> l
 """
 
 g = OMeta.makeGrammar(strip_comments(gram), {'match_args':match_args, 'from_flag':from_flag})

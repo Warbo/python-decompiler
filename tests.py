@@ -83,7 +83,7 @@ j(*a, **b)
 class B(A):
 
 	def __init__(self):
-		pass""", ['Statement']), \
+		pass""", ['Statement', 'Pass', 'Function']), \
 	Test('Compare', 'x < y and 1 == 5 and 2 > 8', ['Name', 'Constant', 'And']), \
 	Test('Constant', """1
 -5
@@ -99,7 +99,7 @@ u"Unicode"
 	Test('Continue', """for x in range(5):
 	if x == 2:
 		continue
-	print str(x)""", ['Statement', 'Name', 'Function Call', 'Compare', 'Constant']), \
+	print str(x)""", ['Statement', 'Name', 'Function Call', 'Compare', 'Constant', 'Print New Line']), \
 	Test('Decorators', """
 def a(g):
 	return g
@@ -109,7 +109,7 @@ def f(x,y):
 @dbus.service.signal(dbus_interface='com.example.Sample', signature='us')
 def s(self, thing1, thing2):
 	print str(thing1)+str(thing2)
-""", ['Statement']), \
+""", ['Statement', 'Print New Line']), \
 	Test('Deletion', """
 del x
 del(y)
@@ -134,7 +134,10 @@ y = {a:1, 5:x}
 	Test('For Loop', """for x in range(5):
 	print str(x)
 	for a, b in enumerate(range(10)):
-		print str(a*b)""", ['Statement']), \
+		print str(a*b)
+for i in attr1:
+	i.go()
+""", ['Statement', 'Print New Line']), \
 	Test('From', """from os import get_cwd
 from sys import exit as Exit
 from pygame import draw, mixer as sound, surface
@@ -155,11 +158,11 @@ def j(**a):
 	print str(a)
 def k(*a, **b):
 	print str(a)+str(b)
-""", ['Statement']), \
-	Test('GenExpr', 'print(x for x in range(5))', ['Statement']), \
-	Test('GenExprFor', 'print(x for x in range(5))', ['Statement']), \
-	Test('GenExprIf', 'print(x for x in range(5) if x < 2)', ['Statement']), \
-	Test('GenExprInner', 'print(x for x in range(5))', ['Statement']), \
+""", ['Statement', 'Print New Line']), \
+	Test('GenExpr', 'print(x for x in range(5))', ['Statement', 'Print New Line']), \
+	Test('GenExprFor', 'print(x for x in range(5))', ['Statement', 'Print New Line']), \
+	Test('GenExprIf', 'print(x for x in range(5) if x < 2)', ['Statement', 'Print New Line']), \
+	Test('GenExprInner', 'print(x for x in range(5))', ['Statement', 'Print New Line']), \
 	Test('Get Attribute', 'x.name', ['Statement']), \
 	Test('Global', """global x
 x = 2""", ['Statement']), \
@@ -172,18 +175,18 @@ elif x == 2:
 		print x
 	print "c"
 else:
-	print 'd'""", ['Statement']), \
+	print 'd'""", ['Statement', 'Print New Line']), \
 	Test('Import', """import os
 import sys as System
 if True:
 	import StringIO
 	import pygame, compiler
 	import urllib2
-print 'x'""", ['Statement']), \
+print 'x'""", ['Statement', 'Print New Line']), \
 	Test('Keyword', """def f(x, y, a=True, b="h"):
 	if a:
 		print x+y+b
-f('c','d', a=False)""", ['Statement']), \
+f('c','d', a=False)""", ['Statement', 'Print New Line']), \
 	Test('Lambda', """f = lambda x, y, a=2: x+y+a*a
 lambda: 5*2
 lambda x: x*x
@@ -205,12 +208,16 @@ x = []""", ['Statement']), \
 	Test('Print Inline', """print "TEST",
 print "1: %s 2: %s" % (a, b),
 print '  %-15s %s' % (cmd, description),
-print >> x, "thing",""", ['Statement']), \
+print >> x, "thing",
+print a, b,
+""", ['Statement']), \
 	Test('Print New Line', """print "TEST"
 print "1: %s 2: %s" % (a, b)
 print '  %-15s %s' % (cmd, description)
 print
 print >> x, 'thing'
+print a, b
+print(x for x in range(5))
 """, ['Statement']), \
 	Test('Raise', """raise ValueError()
 raise AssertionError('%s: %s' % (a, b)), None, x
@@ -255,7 +262,7 @@ except:
 		print "Nest fail"
 	else:
 		print 'Nest worked'
-""", ['Statement']), \
+""", ['Statement', 'Print New Line']), \
 	Test('Try Finally', """try:
 	print "x"
 except:
@@ -266,7 +273,7 @@ try:
 	print "a"
 finally:
 	print 'b'
-""", ['Statement']), \
+""", ['Statement', 'Print New Line']), \
 	Test('Tuple', """(a, b, (c, d))
 x=()""", ['Name']), \
 	Test('Unary Addition', '+3', ['Statement']), \
@@ -274,7 +281,7 @@ x=()""", ['Name']), \
 	Test('While Loop', """x = 1
 while x < 5:
 	print str(x)
-	x += 1""", ['Statement']), \
+	x += 1""", ['Statement', 'Print New Line']), \
 	Test('With', '', ['Statement']), \
 	Test('Yield', 'yield x', ['Statement']) \
 ]
