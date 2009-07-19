@@ -457,14 +457,21 @@ callfuncargs :i ::= <token ']'>											=> ''
                   | <sep i> <callfuncargs i>:a							=> ', '+a
                   | <thing i>:t <callfuncargs i>:a						=> t+a
 
-
+#<token 'Class('> <quoted i>:n <sep i> <token '['> <thing i> <token ']'> <sep i> <thing i> <sep i> <thing i> <sep i> <thing i> <token ')'>
+#Class('B', [Name('A')], None, Stmt([Function(None, '__init__', ['self'], [], 0, None, Stmt([Pass()]))]), None)
 # Matches a Python class
 class :i ::= <token 'Class('> <quoted i>:n <sep i> <token '['>
              <classcontents i>:c <sep i> <none i> <sep i> <stmt i+1>:s
              <token ')'>												=> 'class '+n+'('+c+\"""):\n\"""+s
            | <token 'Class('> <quoted i>:n <sep i> <token '['>
-             <classcontents i>:c <sep i> <string i>:d <sep i>
+             <classcontents i>:c <sep i> <thing i>:d <sep i>
              <stmt i+1>:s <token ')'>									=> 'class '+n+'('+c+\"""):\n\"""+(i+1)*'\t'+d+\"""\n\"""+s
+           | <token 'Class('> <quoted i>:n <sep i> <token '['>
+             <classcontents i>:c <sep i> <none i>:d <sep i>
+             <thing i+1>:s <sep i> <thing i> <token ')'>				=> 'class '+n+'('+c+\"""):\n\"""+s
+           | <token 'Class('> <quoted i>:n <sep i> <token '['>
+             <classcontents i>:c <sep i> <thing i>:d <sep i>
+             <thing i+1>:s <sep i> <thing i> <token ')'>				=> 'class '+n+'('+c+\"""):\n\"""+(i+1)*'\t'+d+\"""\n\"""+s
 
 classcontents :i ::= <token ']'>										=> ''
                    | <sep i> <classcontents i>:c						=> ', '+c
@@ -985,6 +992,17 @@ num ::= <complex>:number												=> number
 sep :i ::= <token ', '>													=> ', '
 
 
+# Matches escaped characters in strings
+escaped ::= <anything>:a ?(a == "\\\\") ('n'								=> "\n"
+                                      |'r'								=> "\r"
+                                      |'t'								=> "\t"
+                                      |'b'								=> "\b"
+                                      |'f'								=> "\f"
+                                      |'"'								=> '"'
+                                      |'\''								=> "'"
+                                      | <anything>:b ?(b == "\\\\")		=> "\\"
+                                      )
+
 # Matches a value in quotes, returning the value with no quotes
 # (also see "string")
 quoted :i ::= <token 'u'> <quote i>:q									=> q
@@ -997,10 +1015,10 @@ quotation ::= "'" "'" "'"												=> "'''"
 
 quote :i ::= <quotation>:q <quotecontents q>:c							=> c
 
-quotecontents :q ::= <exactly q> 										=> q
-                   | <anything>:a ?(a == "\\\\") <exactly q> 
-                     <quotecontents q>:c								=> "\\\\"+q+c
-                   | <anything>:a <quotecontents q>:c					=> a+c
+quotecontents :q ::= <exactly q> 										=> ''
+#                   | <anything>:a ?(a == "\\\\") <exactly q> 
+#                     <quotecontents q>:c								=> "\\\\"+q+c
+                   | (<escaped> | <anything>):a <quotecontents q>:c					=> a+c
 
 
 # Matches a value in quotes, returning the value and the quotes. For
@@ -1011,9 +1029,9 @@ string :i ::= <token 'u'> <str i>:s										=> 'u'+s
 str :i ::= <quotation>:q <strcontents q>:c								=> q+c
 
 strcontents :q ::= <exactly q>											=> q
-                 | <anything>:a ?(a == "\\\\") <exactly q>
-                   <strcontents q>:c									=> "\\\\"+q+c
-                 | <anything>:a <strcontents q>:c			=> a+c
+#                 | <anything>:a ?(a == "\\\\") <exactly q>
+#                   <strcontents q>:c									=> "\\\\"+q+c
+                 | (<escaped> | <anything>):a <strcontents q>:c			=> a+c
 
 
 # Matches a series of comma-separated values in brackets
