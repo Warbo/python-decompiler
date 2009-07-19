@@ -343,7 +343,7 @@ thing :i ::= <string i>:s												=> s
 
 ## The following match the AST nodes of the compiler module
 
-#Add((Power((CallFunc(Getattr(Name('math'), 'hypot'), [Sub((Subscript(Name('point_position'), 'OP_APPLY', [Const(0)]), Subscript(Name('position'), 'OP_APPLY', [Const(0)]))), Sub((Subscript(Name('point_position'), 'OP_APPLY', [Const(1)]), Subscript(Name('position'), 'OP_APPLY', [Const(1)])))], None, None), Const(2))), Const(9.9999999999999995e-07)))
+
 # Matches addition
 add :i ::= <token 'Add'> <addcontents i>:a								=> a
 
@@ -378,7 +378,7 @@ asstuplecontents :i ::= <token ']'>										=> ''
                       | <sep i> <asstuplecontents i>:l					=> ', '+l
                       | <thing i>:t <asstuplecontents i>:l				=> t+l
 
-#Assert(Compare(Name('stuff'), [('is not', Name('None'))]), Mod((Const("Couldn't find the module '%s'"), Tuple([Name('base_name')]))))
+
 # Matches an assertion
 assert :i ::= <token 'Assert('> <thing i>:t <sep i>
                                 <none i> <token ')'>					=> 'assert '+t
@@ -430,15 +430,18 @@ callfunc :i ::= <token 'CallFunc('> <thing i>:name <sep i> <token '['>
                       # Catch empty arguments first
 callfunccontents :i ::= <token ']'> <sep i> <none i> <sep i> <none i>
                         <token ')'>										=> ')'
-                      # Now catch either an argument lists or a dictionary
+                      # Now catch either an argument lists or a 
+                      # dictionary
                       | <token ']'> <sep i> <thing i>:list <sep i>
                         <none i> <token ')'>							=> '*'+list+')'
                       | <token ']'> <sep i> <none i> <sep i>
                         <thing i>:kw <token ')'>						=> '**'+kw+')'
-                      # Now catch both (since "None" is a "thing" we need to catch empty args with the above 3)
+                      # Now catch both (since "None" is a "thing" we 
+                      # need to catch empty args with the above 3)
                       | <token ']'> <sep i> <thing i>:list <sep i>
                         <thing i>:kw <token ')'>						=> '*'+list+', **'+kw+')'
-                      # Now do the same, but including regular arguments, starting with no list or dictionary
+                      # Now do the same, but including regular 
+                      # arguments, starting with no list or dictionary
                       | <callfuncargs i>:a <sep i>
                         <none i>:list <sep i> <none i>:kw <token ')'>	=> a+')'
                       # Now catch arguments plus a list or dictionary
@@ -491,12 +494,7 @@ continue :i ::= <token 'Continue()'>									=> 'continue'
 decorators :i ::= <token 'Decorators(['> <thing i>:dec <token '])'>		=> '@'+dec
                 | <token 'Decorators('> <list i>:decs <token ')'>		=> '@'+(\"""\n\"""+('\t'*i)+'@').join(decs)
 
-#Module(None, Stmt([
-#AssName('x', 'OP_DELETE'),
-#AssName('y', 'OP_DELETE'),
-#AssTuple([AssName('a', 'OP_DELETE'), AssName('b', 'OP_DELETE'), AssName('c', 'OP_DELETE')]),
-#Subscript(Name('x'), 'OP_DELETE', [Name('a')]),
-#Slice(Name('x'), 'OP_DELETE', Name('a'), Name('b')), Subscript(Name('x'), 'OP_DELETE', [Sliceobj([Name('a'), Name('b'), Name('c')])])]))
+
 # Matches deletions
 del :i ::= <delcontents i>:c											=> 'del '+c
 
@@ -521,8 +519,9 @@ delsub :i ::= <token 'Subscript('> <thing i>:l <sep i>
                  <token "'OP_DELETE'"> <sep i>
                  <token '['> <thing i>:s <token '])'>					=> l+'['+s+']'
 
-delslice :i ::= <token 'Slice('> <thing i>:t <sep i> <token "'OP_DELETE'">
-                <sep i> <none i> <sep i> <none i> <token ')'>			=> t+'[:]'
+delslice :i ::= <token 'Slice('> <thing i>:t <sep i> 
+                <token "'OP_DELETE'"> <sep i> <none i> <sep i> <none i>
+                <token ')'>												=> t+'[:]'
            | <token 'Slice('> <thing i>:t <sep i> <token "'OP_DELETE'">
              <sep i> <none i> <sep i> <thing i>:r <token ')'>			=> t+'[:'+r+']'
            | <token 'Slice('> <thing i>:t <sep i> <token "'OP_DELETE'">
@@ -690,7 +689,7 @@ elifs :i ::= <token ']'>												=> ''
 else :i ::= <none i>													=> ''
           | <stmt i+1>:s												=> \"""else:\n\"""+s
 
-#Import([('compiler', None), ('traceback', None)])
+
 # Matches module imports
 import :i ::= <token 'Import(['> <importcontents i>:c <token ')'>		=> 'import '+c
 
@@ -890,7 +889,7 @@ subscript :i ::= <token 'Subscript('> <thing i>:l <sep i>
                  <quoted i> <sep i>
                  <token '['> <thing i>:s <token '])'>					=> l+'['+s+']'
 
-#TryExcept(Stmt([Printnl([Const('x')], None)]), [(Name('SyntaxError'), None, Stmt([Pass()])), (Name('ParseError'), None, Stmt([Printnl([Const('y')], None)])), (None, None, Stmt([Printnl([Const('z')], None)]))], None)
+
 # Matches "try:" "except:" statements
 tryexcept :i ::= <token 'TryExcept('> <stmt i+1>:t <sep i> <token '['>
                  <trycontents i>:e <sep i> <none i> <token ')'>			=> \"""try:\n\"""+t+e
@@ -906,7 +905,7 @@ trycontents :i ::= <token ']'>											=> ''
                  | <token '('> <thing i>:x <sep i> <thing i>:y <sep i>
                    <stmt i+1>:e <token ')'> <trycontents i>:c			=> '\t'*i+'except '+x+', '+y+\""":\n\"""+e+c
 
-#TryFinally(<Stmt><sep> Stmt())
+
 # Matches "finally" statements ("do this regardless") after a try/except
 tryfinally :i ::= <token 'TryFinally('> <tryexcept i>:t <sep i>
                                         <stmt i+1>:s <token ')'>		=> t + \"""\n\""" + '\t'*i + \"""finally:\n\""" + s
@@ -991,22 +990,17 @@ sep :i ::= <token ', '>													=> ', '
 quoted :i ::= <token 'u'> <quote i>:q									=> q
             | <quote i>:q												=> q
 
-quote :i ::= <token "'''"> <quotetriplesingle i>:q						=> q
-            | <token '""'> '"' <quotetripledouble i>:q					=> q
-            | <token "'"> <quotesingle i>:q								=> q
-            | <token '"'> <quotedouble i>:q								=> q
+quotation ::= "'" "'" "'"												=> "'''"
+            | '"' '"' '"'												=> '""'+'"'
+            | "'"														=> "'"
+            | '"'														=> '"'
 
-quotesingle :i ::= "'"													=> ''
-                 | <anything>:a <quotesingle i>:q						=> a+q
+quote :i ::= <quotation>:q <quotecontents q>:c							=> c
 
-quotedouble :i ::= '"'													=> ''
-                 | <anything>:a <quotedouble i>:q						=> a+q
-
-quotetriplesingle :i ::= "'" "'" "'"									=> ''
-                       | <anything>:a <quotetriplesingle i>:q			=> a+q
-
-quotetripledouble :i ::= '"' '"' '"'									=> ''
-                       | <anything>:a <quotetripledouble i>:q			=> a+q
+quotecontents :q ::= <exactly q> 										=> q
+                   | <anything>:a ?(a == "\\\\") <exactly q> 
+                     <quotecontents q>:c								=> "\\\\"+q+c
+                   | <anything>:a <quotecontents q>:c					=> a+c
 
 
 # Matches a value in quotes, returning the value and the quotes. For
@@ -1014,22 +1008,12 @@ quotetripledouble :i ::= '"' '"' '"'									=> ''
 string :i ::= <token 'u'> <str i>:s										=> 'u'+s
             | <str i>:s													=> s
 
-str :i ::= <token "'''"> <stringtriplesingle i>:q					=> "'''"+q+"'''"
-            | <token '""'> '"' <stringtripledouble i>:q					=> '""'+'"'+q+'""'+'"'
-            | <token "'"> <stringsingle i>:q							=> "'"+q+"'"
-            | <token '"'> <stringdouble i>:q							=> '"'+q+'"'
+str :i ::= <quotation>:q <strcontents q>:c								=> q+c
 
-stringsingle :i ::= "'"													=> ''
-                 | <anything>:a <stringsingle i>:q						=> a+q
-
-stringdouble :i ::= '"'													=> ''
-                 | <anything>:a <stringdouble i>:q						=> a+q
-
-stringtriplesingle :i ::= "'" "'" "'"									=> ''
-                       | <anything>:a <stringtriplesingle i>:q			=> a+q
-
-stringtripledouble :i ::= '"' '"' '"'									=> ''
-                       | <anything>:a <stringtripledouble i>:q			=> a+q
+strcontents :q ::= <exactly q>											=> q
+                 | <anything>:a ?(a == "\\\\") <exactly q>
+                   <strcontents q>:c									=> "\\\\"+q+c
+                 | <anything>:a <strcontents q>:c			=> a+c
 
 
 # Matches a series of comma-separated values in brackets
@@ -1048,6 +1032,7 @@ listval :i ::= <token ']'>												=> ''
 
 # Matches Python's null object
 none :i ::= <token 'None'>												=> 'None'
+
 
 ## The following contain Python's precedence rules
 ## Backquote
@@ -1109,7 +1094,7 @@ none :i ::= <token 'None'>												=> 'None'
 #prec23 :i ::= <or i>:o													=> o
 ## Lambda
 #prec24 :i ::= <lambda i>:l												=> l
-"""
+#"""
 
 g = OMeta.makeGrammar(strip_comments(gram), {'match_args':match_args, 'from_flag':from_flag})
 
