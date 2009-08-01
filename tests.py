@@ -1,4 +1,5 @@
-from transformer import g
+import TEST
+from TEST import grammar as g
 import compiler
 from pymeta.runtime import ParseError
 
@@ -15,29 +16,28 @@ class Test:
 		self.message = self.name + ": Test didn't run"
 
 	def run(self, grammar):
-		self.message = self.name + ': '
+		self.message = self.name.upper() + '\n=======================\n'
 		if self.code == '':
 			self.message = self.message + 'No test set'
 			return
 		try:
 			try:
-				tree = str(compiler.parse(self.code))
+				tree = TEST.parse(self.code)
 			except SyntaxError:
 				self.message = self.message + """Error in test.\n""" + self.code
 				raise EscapeException()
 			try:
-				matcher = grammar(tree)
-				generated = matcher.apply('any')
+				generated = tree.rec(0)
 			except ParseError:
 				self.message = self.message + """Error in grammar.\n""" + self.code + """\n\n""" + tree
 				raise EscapeException()
 			try:
-				assert str(compiler.parse(generated)) == tree
+				assert str(compiler.parse(generated)) == str(tree)
 			except AssertionError:
-				self.message = self.message + """Error, generated code does not match original.\n""" + self.code + """\n\n""" + tree + """\n\n""" + generated
+				self.message = self.message + """Error, generated code does not match original.\n""" + self.code + """\n\n""" + str(tree) + """\n\n""" + generated
 				raise EscapeException()
 			except SyntaxError:
-				self.message = self.message + """Error in generated code.\n""" + self.code + """\n\n""" + tree + """\n\n""" + generated
+				self.message = self.message + """Error in generated code.\n""" + self.code + """\n\n""" + str(tree) + """\n\n""" + generated
 				raise EscapeException()
 			self.message = self.message + "OK"
 			self.result = True
@@ -158,6 +158,8 @@ def j(**a):
 	print str(a)
 def k(*a, **b):
 	print str(a)+str(b)
+def l(a):
+	return a
 """, ['Statement', 'Print New Line']), \
 	Test('GenExpr', 'print(x for x in range(5))', ['Statement', 'Print New Line']), \
 	Test('GenExprFor', 'print(x for x in range(5))', ['Statement', 'Print New Line']), \
