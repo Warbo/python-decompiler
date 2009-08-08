@@ -474,31 +474,8 @@ args['is_del'] = is_del
 stripped = strip_comments(grammar_def)
 grammar = OM.makeGrammar(stripped, args)
 
-def rec(self, i):
-	"""This creates a matcher with the current instance as the input. It
-	then applies the "thing" rule with "i" as the indentation argument.
-	Finally it returns the result."""
-	try:
-		self.matcher = self.grammar([self])
-	except Exception, e:
-		print 'OOPS {'
-		print 'Exception: ' + str(e)
-		print 'Attempting: '+str(self.__class__)
-		print '}'
-		return ''
-	try:
-		r = self.matcher.apply('thing', i)
-	except Exception, e:
-		print 'ERR {'
-		print 'Exception: '+str(e)
-		print 'Attempting: '+str(self.__class__)
-		print '}'
-		return ''
-	return r
-
 # Give every AST node access to the grammar, and add the "rec" function
 Node.grammar = grammar
-Node.rec = rec
 
 def parse(code):
 	return compiler.parse(code)
