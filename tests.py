@@ -1,5 +1,5 @@
-import TEST
-from TEST import grammar as g
+import transformer
+from transformer import grammar as g
 import compiler
 from pymeta.runtime import ParseError
 
@@ -15,6 +15,9 @@ class Test:
 		self.result = False
 		self.message = self.name + ": Test didn't run"
 
+	def get_tree(self):
+		return transformer.parse(self.code)
+
 	def run(self, grammar):
 		self.message = self.name.upper() + '\n=======================\n'
 		if self.code == '':
@@ -22,7 +25,7 @@ class Test:
 			return
 		try:
 			try:
-				tree = TEST.parse(self.code)
+				tree = self.get_tree()
 			except SyntaxError:
 				self.message = self.message + """Error in test.\n""" + self.code
 				raise EscapeException()
@@ -288,34 +291,35 @@ while x < 5:
 	Test('Yield', 'yield x', ['Statement']) \
 ]
 
-for test in tests:
-	test.run(g)
+if __name__ == '__main__':
+	for test in tests:
+		test.run(g)
 
-failed = []
-succeeded = []
-unknown = []
+	failed = []
+	succeeded = []
+	unknown = []
 
-for test in tests:
-	if not test.result:
-		failed.append(test)
-	else:
-		succeeded.append(test)
+	for test in tests:
+		if not test.result:
+			failed.append(test)
+		else:
+			succeeded.append(test)
 
-for test in failed[:]:
-	for dep in test.deps:
-		for test2 in failed[:]:
-			if test2.name == dep:
-				try:
-					failed.remove(test)
-					unknown.append(test)
-				except ValueError:
-					pass
+	for test in failed[:]:
+		for dep in test.deps:
+			for test2 in failed[:]:
+				if test2.name == dep:
+					try:
+						failed.remove(test)
+						unknown.append(test)
+					except ValueError:
+						pass
 
-for s in succeeded:
-	print s.message
+	for s in succeeded:
+		print s.message
 
-for u in unknown:
-	print u.name + ': Unknown (depends on broken rules)'
+	for u in unknown:
+		print u.name + ': Unknown (depends on broken rules)'
 
-for f in failed:
-	print f.message
+	for f in failed:
+		print f.message

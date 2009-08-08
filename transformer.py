@@ -7,16 +7,22 @@ compiler module's "parse" functions) into Python code. This is done by calling
 Your own arbitrary transformations can be added to the grammar, which is then
 applied recursively down the tree."""
 
+########################################################################
+# Language extensions
+# Multiline comments?
+# Replace all syntactic sugar with their implementation (eg. + => __add__)
+# Use Id for objects
+# Worlds:
+#	Extend to allow world merges? Like mixins?
+#	Build a module to allow running anything in a world (like Psyco transparently compiles)
+#	Safe Try/Except
+########################################################################
+
 from sys import version_info as v
 import compiler
 import compiler.ast as ast
 from pymeta.grammar import OMeta as OM
-
-## Inject every AST node class into our namespace
-# Make a list of every class in the ast module (using Add as an example)
-names = [s for s in dir(ast) if type(eval('ast.'+s)) == type(ast.Add) and s[0].isupper()]
-# Import the names we found
-exec('from compiler.ast import '+', '.join(names))
+from nodes import *
 
 # Can't get my OMeta subclasses to work, and OMeta has no comment syntax
 # so we have to remove comments from the grammar manually using this
@@ -163,6 +169,8 @@ node :i ::= <delete i>:d => d
           | <while i>:w => w
           | <with i>:w => w
           | <yield i>:y => y
+## UNCOMMENT THE FOLLOWING TO MAKE DEBUGGING EASIER
+#		  | <anything>:a => 'FAIL'+str(a)
 
 # Add is addition, with a left and a right
 # We want the left and right, joined by a plus sign '+'
@@ -178,7 +186,6 @@ asslist :i ::= <anything>:a ?(a.__class__ == AssList) => ''
 
 # AssName assigns to a variable name
 # We want the variable name
-### TODO: Handle deletes
 assname :i ::= <anything>:a ?(a.__class__ == AssName) => a.name
 
 # Matches the assignment of multiple names to multiple objects
@@ -228,7 +235,7 @@ class :i ::= <anything>:a ?(a.__class__ == Class) ?(v[1] < 6 or a.decorators is 
 
 # Compare groups together comparisons (==, <, >, etc.)
 # We want the left-hand expression followed by each operation joined with its right-hand-side
-compare :i ::= <anything>:a ?(a.__class__ == Compare) => a.expr.rec(i) + ''.join([o[0]+o[1].rec(i) for o in a.ops])
+compare :i ::= <anything>:a ?(a.__class__ == Compare) => a.expr.rec(i) + ' ' + ' '.join([o[0]+' '+o[1].rec(i) for o in a.ops])
 
 # Const wraps a constant value
 # We want strings in quotes and numbers as strings
@@ -279,7 +286,8 @@ floordiv :i ::= <anything>:a ?(a.__class__ == FloorDiv) => ''
 for :i ::= <anything>:a ?(a.__class__ == For) ?(a.else_ is None) => 'for '+a.assign.rec(i)+' in '+a.list.rec(i)+\""":\n\"""+a.body.rec(i+1)
          | <anything>:a ?(a.__class__ == For) ?(not a.else_ is None) => 'for '+a.assign.rec(i)+' in '+a.list.rec(i)+\""":\n\"""+a.body.rec(i+1)+\"""\n\"""+(i*'\t')+\"""else:\n\"""+a.else_.rec(i+1)
 
-from :i ::= <anything>:a ?(a.__class__ == From) => ''
+# Matches namespace injections
+from :i ::= <anything>:a ?(a.__class__ == From) => 'from '+(a.level*'.')+a.modname+' import '+', '.join(import_match(a.names))
 
 # Matches function definition
 # Don't be scared by the list comprehensions, they only match argument
@@ -399,7 +407,7 @@ print :i ::= <anything>:a ?(a.__class__ == Print) ?(a.dest is None) => 'print '+
 printnl :i ::= <anything>:a ?(a.__class__ == Printnl) ?(a.dest is None) => 'print '+', '.join([n.rec(i) for n in a.nodes])
              | <anything>:a ?(a.__class__ == Printnl) => 'print >> '+a.dest.rec(i)+', '+', '.join([n.rec(i) for n in a.nodes])
 
-raise :i ::= <anything>:a ?(a.__class__ == Raise) => ''
+raise :i ::= <anything>:a ?(a.__class__ == Raise) => 'raise '+', '.join([t[0] for t in [[e] for n,e in enumerate([a.expr3,a.expr2,a.expr1]) if e is not None or any([a.expr1,a.expr2,a.expr3][-(n+1):])] if (t[0] is not None and t.__setitem__(0,t[0].rec(i))) or (t[0] is None and t.__setitem__(0, 'None')) or True][::-1])
 
 # Matches the passing of return values from functions, etc.
 return :i ::= <anything>:a ?(a.__class__ == Return) => 'return '+a.value.rec(i)
@@ -426,9 +434,13 @@ sub :i ::= <anything>:a ?(a.__class__ == Sub) => '(('+a.left.rec(i)+') - ('+a.ri
 # Matches extracting item(s) from a collection based on an index or key
 subscript :i ::= <anything>:a ?(a.__class__ == Subscript) => a.expr.rec(i)+'['+', '.join([s.rec(i) for s in a.subs])+']'
 
-tryexcept :i ::= <anything>:a ?(a.__class__ == TryExcept) => ''
+# Matches try/except blocks
+tryexcept :i ::= <anything>:a ?(a.__class__ == TryExcept) ?(a.else_ is None) => 'try:'+a.body.rec(i+1)+\"""\n\"""+i*'\t'+(\"""\n\"""+i*'\t').join(['except'+' '.join([' '+e.rec(i) for e in [h[0]] if not e is None])+', '.join([', '+n.rec(i) for n in [h[1]] if not n is None])+':'+h[2].rec(i+1) for h in a.handlers])
+               | <anything>:a ?(a.__class__ == TryExcept) ?(not a.else_ is None) => 'try:'+a.body.rec(i+1)+\"""\n\"""+i*'\t'+(\"""\n\"""+i*'\t').join(['except '+' '.join([' '+e.rec(i) for e in [h[0]] if not e is None])+', '.join([', '+n.rec(i) for n in [h[1]] if not n is None])+':'+h[2].rec(i+1) for h in a.handlers])+\"""\n\"""+'\t'*i+\"""else:\"""+a.else_.rec(i+1)
 
-tryfinally :i ::= <anything>:a ?(a.__class__ == TryFinally) => ''
+# Catches finally clauses on try/except blocks
+tryfinally :i ::= <anything>:a ?(a.__class__ == TryFinally) ?(a.body.__class__ == TryExcept) => a.body.rec(i)+\"""\n\"""+i*'\t'+'finally:'+a.final.rec(i+1)
+                | <anything>:a ?(a.__class__ == TryFinally) => 'try:'+a.body.rec(i+1)+\"""\n\"""+i*'\t'+'finally:'+a.final.rec(i+1)
 
 # Matches an immutable, ordered collection
 tuple :i ::= <anything>:a ?(a.__class__ == Tuple) ?(len(a.nodes) > 1) => '('+', '.join([n.rec(i) for n in a.nodes])+')'
@@ -459,7 +471,8 @@ args['tuple_args'] = tuple_args
 args['is_del'] = is_del
 
 # grammar is the class, instances of which can match using grammar_def
-grammar = OM.makeGrammar(strip_comments(grammar_def), args)
+stripped = strip_comments(grammar_def)
+grammar = OM.makeGrammar(stripped, args)
 
 def rec(self, i):
 	"""This creates a matcher with the current instance as the input. It
