@@ -1,0 +1,90 @@
+This was written by Chris Warburton (chriswarbo@gmail.com) and is
+released into the Public Domain.
+
+This Python script uses PyMeta to do the reverse of Python 2.x's
+Compiler module. Compiler takes valid Python code and builds an Astract
+Syntax Tree (AST) out of it, which is useful for compilation since an
+AST is easier to automatically manipulate than hand-written Python.
+
+For example, the Python code:
+
+x = y + 1
+
+is compiled to:
+
+Assign([AssName('x', 'OP_ASSIGN')], Add((Name('y'), Const(1))))
+
+This script takes an AST generated in such a way, and outputs pure
+Python code which matches the AST (ie. if given the AST above it would
+output the Python line above). This is known as a pretty printer.
+
+This is achieved using PyMeta, a pattern matching library which uses
+Parsing Expression Grammars (PEGs), which are a more powerful
+alternative to regular expressions. This means that the grammar can be
+subclassed and overridden just like any Object in Python, allowing more
+interesting results than merely reconstructing Python; for example it
+could be used to translate from one language to another at the more
+convenient AST level, or to make existing code fit new requirements,
+such as replacing all attribute access with accessor and mutator
+methods.
+
+USAGE
+
+The main work is done in the file transformer.py. This contains the
+OMeta grammar string, transformer.grammar_def, used to pretty print the
+Python AST (OMeta rules can be redefined, so importing and extending
+this with your own rules is one way to build on the grammar).
+
+The OMeta grammar class for these rules is called transformer.grammar,
+and can be instantiated with an iterable argument containing AST nodes*.
+For example:
+
+matcher = transformer.grammar(transformer.parse(some_python))
+
+will NOT work. However, the following will:
+
+matcher = transformer.grammar([transformer.parse(some_python)])
+
+This gives a grammar instance with the contents of "some_python"
+assigned to its input. Rules can now be applied to this instance, with
+the format:
+
+rule_output = matcher.apply('rule_name', args, ...) # (args are only needed for rules which require them)
+
+This attempts to apply the rule "rule_name" to the input. If it succeeds
+then the matching input will be consumed (ie. the next rule application
+will start with the input following that which matches "rule_name") and
+any rule output (anything after a "=>" in the rule) will be used as
+the value of rule_output. If the rule doesn't have any output then the
+last piece of input which was consumed will be returned instead.
+
+The base rule for generating Python is called simply "python", and takes
+a singe integer as an argument. This integer is the amount of
+indentation (number of tabs) to use initially (so using 0 will give the
+left-most lines no indentation).
+
+To try this out you can run the transformer.py file directly, which will
+construct the grammar, parse a test string into a tree then
+pattern-match it back into a string of Python. It then parses this
+generated string and compares the two ASTs. If they are the same it
+prints "WORKS".
+
+The file tests.py contains more rigorous tests for each AST node type.
+When run, this does a similar thing to transformer's primitive test, but
+categorises them into those which work, those which don't work (in which
+case the original code, the generated code and the AST is printed) and
+those which don't work because they rely on other tests which are not
+working. An example of the latter is a test for Print nodes like
+"print 5,", which will fail if Const(ant) is broken, but this doesn't
+necessarily imply that Print is broken.
+
+* The nodes directly from compiler.ast will not work, however, since
+they need to be monkey patched to allow recursion. This only requires
+two lines, however:
+
+Node.rec = nodes.rec
+Node.grammar = transformer.g
+
+To import all node types with the rec function defined already you can
+import everything from nodes.py for convenience (you'll still need to
+give Node the grammar class you want to use though).
