@@ -14,10 +14,13 @@ PyMeta (a Python implementation of the OMeta pattern matching system)"""
 
 import os
 import sys
-from python_rewriter.base import grammar_def, strip_comments
+from python_rewriter.base import grammar_def, strip_comments, parse
 from python_rewriter.nodes import *
 from pymeta.grammar import OMeta
 
+#def augassign_extender(node):
+#	return a.node.rec(i)+' = '+eval('parse('+a.node.rec(i)+a.op[:-1]+a.expr.rec(i)))
+	
 def assign_populate(tree):
 	"""Takes the values of any assignments made and applies them to the
 	name nodes they apply to."""
@@ -174,6 +177,8 @@ def populate_modules(tree, module=None, level=0):
 		tree._module = module
 	except TypeError:
 		pass
+	except AttributeError:
+		pass
 		
 	# These are the names of the possible attributes we may be
 	# interested in
@@ -240,7 +245,7 @@ def populate_modules(tree, module=None, level=0):
 
 grammar_def = grammar_def + """
 # a + b becomes a.__add__(b)
-add :i => add :i ::= <anything>:a ?(a.__class__ == Add) => a.left.rec(i)+'.__add__('+a.right.rec(i)+')'
+add :i ::= <anything>:a ?(a.__class__ == Add) => a.left.rec(i)+'.__add__('+a.right.rec(i)+')'
 
 # assert things becomes assert(things)
 assert :i ::= <anything>:a ?(a.__class__ == Assert) ?(a.fail is None) => 'assert('+a.test.rec(i)+')'
@@ -248,7 +253,7 @@ assert :i ::= <anything>:a ?(a.__class__ == Assert) ?(a.fail is None) => 'assert
 
 # a += b becomes a = a.__add__(b)
 # To do this we put the left = left then transform the operation and append it to the end
-augassign :i ::= <anything>:a ?(a.__class__ == AugAssign) => a.node.rec(i)+' = '+eval('parse('+a.node.rec(i)+a.op[:-1]+a.expr.rec(i)))
+augassign :i ::= <anything>:a ?(a.__class__ == AugAssign) => a.node.rec(i)+' = '+eval('parse('+a.node.rec(i)+a.op[:-1]+a.expr.rec(i))
 
 # Function definition involves more than it appears at first glance. We
 # need to:
@@ -267,26 +272,26 @@ function :i ::= <anything>:a ?(a.__class__ == Function) => function_writer(a, i)
 
 """
 
-grammar = OMeta.makeGrammar(grammar_def, globals())
+grammar = OMeta.makeGrammar(strip_comments(grammar_def), globals())
 
 def translate(path_or_text, initial_indent=0):
-	if os.exists(path_or_text):
+	if os.path.exists(path_or_text):
 		infile = open(path_or_text, 'r')
 		in_text = '\n'.join([line for line in infile.readlines()])
 	else:
 		in_text = path_or_text
-	try:
-		tree = parse(in_text)
-		tree = assign_populate(tree)
-		tree = populate_modules(tree)
+	#try:
+	tree = parse(in_text)
+	tree = assign_populate(tree)
+	tree = populate_modules(tree)
 		#tree = populate_functions(tree)
-		matcher = grammar([tree])
-		diet_code = matcher.apply('python', initial_indent)
-		return diet_code
-	except Exception, e:
-		print str(e)
-		print 'Unable to translate.'
-		sys.exit(1)
+	matcher = grammar([tree])
+	diet_code = matcher.apply('python', initial_indent)
+	return diet_code
+	#except Exception, e:
+	#	print str(e)
+	#	print 'Unable to translate.'
+	#	sys.exit(1)
 
 if __name__ == '__main__':
 	if len(sys.argv) == 2:
