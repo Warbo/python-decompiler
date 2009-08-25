@@ -14,13 +14,10 @@ PyMeta (a Python implementation of the OMeta pattern matching system)"""
 
 import os
 import sys
-from python_rewriter.base import grammar_def, strip_comments, parse
+from python_rewriter.base import grammar_def, strip_comments, parse, constants
 from python_rewriter.nodes import *
 from pymeta.grammar import OMeta
 
-#def augassign_extender(node):
-#	return a.node.rec(i)+' = '+eval('parse('+a.node.rec(i)+a.op[:-1]+a.expr.rec(i)))
-	
 def assign_populate(tree):
 	"""Takes the values of any assignments made and applies them to the
 	name nodes they apply to."""
@@ -45,7 +42,8 @@ def assign_populate(tree):
 						names.extend(get_names(n))
 				return names
 			get_names(tree)
-			############################################################
+		return tree
+		############################################################
 	elif type(tree) == type([]):
 		new_list = []
 		for item in tree:
@@ -198,7 +196,7 @@ def populate_modules(tree, module=None, level=0):
 		# We can forget about the module which this module node's in,
 		# since we should have already assigned its metadata which
 		# includes it :)
-		tree.__setattribute__('_namespace', [])
+		tree._namespace = []
 		# Thus we need to recurse through everything that we care about
 		# which may be in this node
 		for name in set(attributes).intersection(set(dir(tree))):
@@ -207,6 +205,7 @@ def populate_modules(tree, module=None, level=0):
 					populate_modules(tree.__getattribute__(name), tree))
 			except AttributeError:
 				pass
+		print "Module is " + str(tree)
 		return tree
 				
 	# If we're not a Module, but we're still a Node, then do the same
@@ -253,7 +252,7 @@ assert :i ::= <anything>:a ?(a.__class__ == Assert) ?(a.fail is None) => 'assert
 
 # a += b becomes a = a.__add__(b)
 # To do this we put the left = left then transform the operation and append it to the end
-augassign :i ::= <anything>:a ?(a.__class__ == AugAssign) => a.node.rec(i)+' = '+eval('parse('+a.node.rec(i)+a.op[:-1]+a.expr.rec(i))
+augassign :i ::= <anything>:a ?(a.__class__ == AugAssign) => a.node.rec(i)+' = '+eval('parse("'+a.node.rec(i)+a.op[:-1]+a.expr.rec(i)+'").rec('+str(i)+').strip()')
 
 # Function definition involves more than it appears at first glance. We
 # need to:
@@ -273,6 +272,7 @@ function :i ::= <anything>:a ?(a.__class__ == Function) => function_writer(a, i)
 """
 
 grammar = OMeta.makeGrammar(strip_comments(grammar_def), globals())
+Node.grammar = grammar
 
 def translate(path_or_text, initial_indent=0):
 	if os.path.exists(path_or_text):
@@ -282,11 +282,14 @@ def translate(path_or_text, initial_indent=0):
 		in_text = path_or_text
 	#try:
 	tree = parse(in_text)
+	print "Tree is " + str(tree)
 	tree = assign_populate(tree)
+	print "Tree is " + str(tree)
 	tree = populate_modules(tree)
-		#tree = populate_functions(tree)
-	matcher = grammar([tree])
-	diet_code = matcher.apply('python', initial_indent)
+	print "Tree is " + str(tree)
+	#	#tree = populate_functions(tree)
+	#matcher = grammar([tree])
+	diet_code = tree.rec(0)#matcher.rec(0)#('python', initial_indent)
 	return diet_code
 	#except Exception, e:
 	#	print str(e)
