@@ -34,10 +34,15 @@ def assign_populate(tree):
 				elif node.__class__ == AssName \
 					and node.flags == 'OP_DELETE':
 					names.append('-'+node.name)
-				for n in .nodes:
-				if n.__class__ == AssName:
-					to_ass.append(AssName.name)
-				elif n.__class__ == 
+				elif node.__class__ == AssTuple:
+					for n in node.nodes:
+						names.extend(get_names(n))
+				elif node.__class__ == Assign:
+					for n in node.nodes:
+						names.extend(get_names(n))
+				return names
+			get_names(tree)
+			############################################################
 	elif type(tree) == type([]):
 		new_list = []
 		for item in tree:
@@ -132,6 +137,10 @@ def function_writer(f, i):
 		new_def = new_def + '\n' + (i+1)*'\t' + \
 			f.name+'.__setattr__("__module__", '+f._module._name+')'
 	
+	# Add the function's globals
+	new_def = new_def + '\n' + (i+1)*'\t' + \
+		f.name+'.__setattr__("func_globals", globals())'
+	
 	# The Stmt of the function's actual contents
 	new_def = new_def + f.code.rec(i+1)
 	
@@ -141,20 +150,6 @@ def function_writer(f, i):
 	# the function definition, ie. we go back to indentation i.
 	# This data should have been inserted into the node by a
 	# "populate_functions" pass over the AST
-	
-	# First we need to define a temporary function to assign properties
-	new_def = new_def +'\n'+ i*'\t' +'def '+f.name
-	# First we add the docstring
-	new_def = new_def +'\n'+ i*'\t' +f.name+'.func_doc = '+\
-		transformer.pick_quotes(f.doc)
-	new_def = new_def +'\n'+ i*'\t' +f.name+'.__doc__ = '+\
-		transformer.pick_quotes(f.doc)
-	# Then the function's name
-	new_def = new_def +'\n'+ i*'\t' +f.name+'.func_name = ' + f.name
-	new_def = new_def +'\n'+ i*'\t' +f.name+'.__name__ = ' + f.name
-	# Then the module where it's defined
-	new_def = new_def +'\n'+ i*'\t' +f.name+'.__module__ = ' + f._mod
-	new_def = new_def +'\n'+ i*'\t' +f.name+
 	
 def populate_functions(tree, module):
 	"""Recursively add metadata to functions in the given AST."""
@@ -198,7 +193,7 @@ def populate_modules(tree, module=None, level=0):
 		# We can forget about the module which this module node's in,
 		# since we should have already assigned its metadata which
 		# includes it :)
-		tree.__setattribute__('_namespace', {})
+		tree.__setattribute__('_namespace', [])
 		# Thus we need to recurse through everything that we care about
 		# which may be in this node
 		for name in set(attributes).intersection(set(dir(tree))):
@@ -208,17 +203,6 @@ def populate_modules(tree, module=None, level=0):
 			except AttributeError:
 				pass
 		return tree
-	
-	# We need to populate our module's namespace, so we need to take
-	# account of everything that may affect it
-	if tree.__class__ == AssName:
-		tree._module._namespace[tree.name] = 
-	if tree.__class__ == Import:
-		for name in tree.names:
-			if name[1] is None:
-				tree._module._namespace[name[0]] = Module(None, None)
-			else:
-				tree._module._namespace[name[1]] = Module(None, None)
 				
 	# If we're not a Module, but we're still a Node, then do the same
 	# recursion, but with the module we've been given
@@ -295,7 +279,7 @@ def translate(path_or_text, initial_indent=0):
 		tree = parse(in_text)
 		tree = assign_populate(tree)
 		tree = populate_modules(tree)
-		tree = populate_functions(tree)
+		#tree = populate_functions(tree)
 		matcher = grammar([tree])
 		diet_code = matcher.apply('python', initial_indent)
 		return diet_code

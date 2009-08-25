@@ -9,6 +9,6 @@ setup(name='Python Rewriter', \
 	description='Tools to automatically rewrite Python code', \
 	author='Chris Warburton', \
 	author_email='chriswarbo@gmail.com', \
-	url='http://gitorious.org/python-decompiler'
+	url='http://gitorious.org/python-decompiler', \
 	packages=['python_rewriter', 'diet_python'], \
 	provides=['python_rewriter'])
