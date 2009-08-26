@@ -12,12 +12,18 @@ does not have them.
 This contains a translator from regular Python to Diet Python, using
 PyMeta (a Python implementation of the OMeta pattern matching system)"""
 
+try:
+	import psyco
+	psyco.full()
+except:
+	pass
+	
 import os
 import sys
 from python_rewriter.base import grammar_def, strip_comments, parse, constants
 from python_rewriter.nodes import *
 from pymeta.grammar import OMeta
-
+	
 def assign_populate(tree):
 	"""Takes the values of any assignments made and applies them to the
 	name nodes they apply to."""
@@ -205,7 +211,6 @@ def populate_modules(tree, module=None, level=0):
 					populate_modules(tree.__getattribute__(name), tree))
 			except AttributeError:
 				pass
-		print "Module is " + str(tree)
 		return tree
 				
 	# If we're not a Module, but we're still a Node, then do the same
@@ -254,6 +259,10 @@ assert :i ::= <anything>:a ?(a.__class__ == Assert) ?(a.fail is None) => 'assert
 # To do this we put the left = left then transform the operation and append it to the end
 augassign :i ::= <anything>:a ?(a.__class__ == AugAssign) => a.node.rec(i)+' = '+eval('parse("'+a.node.rec(i)+a.op[:-1]+a.expr.rec(i)+'").rec('+str(i)+').strip()')
 
+# a / b becomes a.__div__(b)
+div :i ::= <anything>:a ?(a.__class__ == Div) => a.left.rec(i)+'.__div__('+a.right.rec(i)+')'
+
+
 # Function definition involves more than it appears at first glance. We
 # need to:
 # * make a callable object (ie. the function)
@@ -269,6 +278,12 @@ augassign :i ::= <anything>:a ?(a.__class__ == AugAssign) => a.node.rec(i)+' = '
 # * bind a tuple of the function's free variables to func_closure
 function :i ::= <anything>:a ?(a.__class__ == Function) => function_writer(a, i)
 
+# a * b becomes a.__mul__(b)
+mul :i ::= <anything>:a ?(a.__class__ == Mul) => a.left.rec(i)+'.__mul__('+a.right.rec(i)+')'
+
+# a - b becomes a.__sub__(b)
+sub :i ::= <anything>:a ?(a.__class__ == Sub) => a.left.rec(i)+'.__sub__('+a.right.rec(i)+')'
+
 """
 
 grammar = OMeta.makeGrammar(strip_comments(grammar_def), globals())
@@ -280,21 +295,17 @@ def translate(path_or_text, initial_indent=0):
 		in_text = '\n'.join([line for line in infile.readlines()])
 	else:
 		in_text = path_or_text
-	#try:
-	tree = parse(in_text)
-	print "Tree is " + str(tree)
-	tree = assign_populate(tree)
-	print "Tree is " + str(tree)
-	tree = populate_modules(tree)
-	print "Tree is " + str(tree)
-	#	#tree = populate_functions(tree)
-	#matcher = grammar([tree])
-	diet_code = tree.rec(0)#matcher.rec(0)#('python', initial_indent)
-	return diet_code
-	#except Exception, e:
-	#	print str(e)
-	#	print 'Unable to translate.'
-	#	sys.exit(1)
+	try:
+		tree = parse(in_text)
+		tree = assign_populate(tree)
+		tree = populate_modules(tree)
+		#	#tree = populate_functions(tree)
+		diet_code = tree.rec(0)#matcher.rec(0)#('python', initial_indent)
+		return diet_code
+	except Exception, e:
+		print str(e)
+		print 'Unable to translate.'
+		sys.exit(1)
 
 if __name__ == '__main__':
 	if len(sys.argv) == 2:
