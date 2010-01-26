@@ -34,6 +34,7 @@ thing ::= <add>:a			=> a
         | <callfunc>:c		=> c
         | <const>:c			=> c
         | <discard>:d		=> d
+        | <div>:d			=> d
         | <getattr>:g		=> g
         | <module>:m		=> m
         | <name>:n			=> n
@@ -53,6 +54,9 @@ const ::= <anything>:a ?(a.__class__ == Const) => Const(a.value)
 
 # Recurse through operations which are not saved
 discard ::= <anything>:a ?(a.__class__ == Discard) => Discard(a.expr.trans())
+
+# a / b becomes a.__div__(b)
+div ::= <anything>:a ?(a.__class__ == Div) => Div((a.left.trans(), a.right.trans()))
 
 # Recurse through attribute lookups
 getattr ::= <anything>:a ?(a.__class__ == Getattr) => Getattr(a.expr.trans(), a.attrname)
@@ -121,7 +125,7 @@ def trans(self):
 	the input. It then applies the "thing" rule. Finally it returns
 	the result."""
 	# Uncomment to see exactly which bits are causing errors
-	#print str(self)
+	print str(self)
 	
 	self.transformer = self.transforms([self])
 	
