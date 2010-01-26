@@ -17,247 +17,71 @@ try:
 	psyco.full()
 except:
 	pass
-	
+
 import os
 import sys
 from python_rewriter.base import grammar_def, strip_comments, parse, constants
 from python_rewriter.nodes import *
 from pymeta.grammar import OMeta
-	
-def assign_populate(tree):
-	"""Takes the values of any assignments made and applies them to the
-	name nodes they apply to."""
-	# If this is a Node then we can get data from it
-	if isinstance(tree, Node):
-		# If we've found an assign then we need to find out what it's
-		# assigning and what it's being bound to
-		if tree.__class__ == Assign:
-			def get_names(node):
-				names = []
-				if node.__class__ == AssName \
-					and node.flags == 'OP_ASSIGN':
-					names.append(node.name)
-				elif node.__class__ == AssName \
-					and node.flags == 'OP_DELETE':
-					names.append('-'+node.name)
-				elif node.__class__ == AssTuple:
-					for n in node.nodes:
-						names.extend(get_names(n))
-				elif node.__class__ == Assign:
-					for n in node.nodes:
-						names.extend(get_names(n))
-				return names
-			get_names(tree)
-		return tree
-		############################################################
-	elif type(tree) == type([]):
-		new_list = []
-		for item in tree:
-			new_list.append(assign_populate(item))
-		return new_list
-	elif type(tree) == type(()):
-		new_tuple = ()
-		for item in tree:
-			new_tuple = new_tuple + (assign_populate(item),)
-		return new_tuple
-	elif type(tree) == type({}):
-		new_dictionary = {}
-		for k in tree.keys():
-			new_dictionary[k] = assign_populate(tree[k])
-		return new_dictionary
-	else:
-		return tree
-		
-def function_writer(f, i):
-	"""Returns a definition of the given function f, at indentation
-	level i, which makes as much of the definition explicit as possible.
-	"""
-	new_def = ''		# This will hold our eventual definition
-	# If we have decorators...
-	if f.decorators is not None:
-		# Then recurse through each one and add it to our definition
-		## FIXME: Decorators are ripe for throwing away:
-		# @foo
-		# def bar():
-		#	pass
-		# is the same as:
-		# def bar():
-		#	pass
-		# bar = foo(bar)
-		# Look into how to do this universally
-		new_def = new_def + ('\n'+(i*'\t')).join(\
-			[d.rec(i) for d in f.decorators])
-		new_def = new_def + '\n'+(i*'\t')
-	# Make a copy of the argument names so we can fiddle with it easily
-	raw_args = f.argnames[:]
-	final_args = []		# This will store our eventual arguments tuple
-	
-	## PROCESS ARGUMENTS IN REVERSE ORDER
-	# This means we start with keyword dictionary arguments (ie. **foo)
-	if f.kwargs is not None:
-		# kwargs is a number, presumably the number of kwargs
-		for x in range(f.kwargs):
-			# These MUST appear at the end of the list, so pop the last
-			# names from raw_args
-			final_args.append('**'+raw_args.pop())
-	# If an argument tuple has been passed (ie. *foo) then this will
-	# precede a kwargs argument, or else be at the end of the tuple.
-	# Either way the next pop from raw_args will get it
-	if f.varargs is not None:
-		for x in range(f.varargs):
-			final_args.append('*'+raw_args.pop())
-	# If any arguments have defaults (ie. foo=bar) then these MUST come
-	# after arguments with no defaults, so we reverse the defaults
-	# (using a slice with step -1) and pop the matching raw_args
-	for default in f.defaults[::-1]:
-		final_args.append(raw_args.pop()+'='+default.rec(i))
-	# Now if there's anything left it will be a regular argument, so
-	# keep popping until there are no more left
-	while len(raw_args) > 0:
-		final_args.append(raw_args.pop())
-	# Now reverse the argument list to get the correct order
-	final_args = final_args[::-1]
-	
-	# Start the core function definition
-	# The definition line
-	new_def = new_def+'def '+f.name+'('+', '.join(final_args)+'):'
-	
-	# Add the docstring (if it has one)
-	new_def = new_def + '\n' + (i+1)*'\t' + \
-			f.name+'.__setattr__("__doc__", '+ \
-			transformer.pick_quotes(f.doc)+')'
-	new_def = new_def + '\n' + (i+1)*'\t' + \
-			f.name+'.__setattr__("func_doc", '+ \
-			transformer.pick_quotes(f.doc)+')'
-	
-	# Add  the function's name
-	new_def = new_def + '\n' + (i+1)*'\t' + \
-			f.name+'.__setattr__("__name__", "'+ f.name + '")'
-	new_def = new_def + '\n' + (i+1)*'\t' + \
-			f.name+'.__setattr__("func_name", "'+ f.name + '")'
-	
-	# Add the function's module
-	if f._module._name is None:
-		new_def = new_def + '\n' + (i+1)*'\t' + \
-			f.name+'.__setattr__("__module__", None)'
-	else:
-		new_def = new_def + '\n' + (i+1)*'\t' + \
-			f.name+'.__setattr__("__module__", '+f._module._name+')'
-	
-	# Add the function's globals
-	new_def = new_def + '\n' + (i+1)*'\t' + \
-		f.name+'.__setattr__("func_globals", globals())'
-	
-	# The Stmt of the function's actual contents
-	new_def = new_def + f.code.rec(i+1)
-	
-	## ADD IMPLICIT INTROSPECTION METADATA EXPLICITLY
-	# Here we give the newly created function the introspection data
-	# that the Python interpreter usually supplies. We do this outside
-	# the function definition, ie. we go back to indentation i.
-	# This data should have been inserted into the node by a
-	# "populate_functions" pass over the AST
-	
-def populate_functions(tree, module):
-	"""Recursively add metadata to functions in the given AST."""
-	# We're interested in functions
-	if tree.__class__ == Function:
-		# The module we've been passed is where this function's defined
-		tree._module = module
-		# The "code" of a function is implementation-dependent, and even
-		# then subject to change, so we should be able to do what we
-		# like with it and only unportable, CPython-specific (ie. bad)
-		# code will be affected, if any exists
-		tree._code = ''
-		tree._globals = module.globals
 
-def populate_modules(tree, module=None, level=0):
-	"""Recursively add metadata to modules in the given AST."""
-	# Attempt to add this module as an attribute to the given node
-	# Needs to be try/except enclosed since we may have a type, rather
-	# than an object, and types are builtin crap which don't support
-	# attribute assignment
-	try:
-		tree._module = module
-	except TypeError:
-		pass
-	except AttributeError:
-		pass
-		
-	# These are the names of the possible attributes we may be
-	# interested in
-	attributes = ['code', 'locals', 'bases', 'kwargs', 'nodes', \
-		'real', 'tests', 'ops', 'dest', 'dstar_args', 'modname', \
-		'isnumeric', 'star_args', 'name', 'level', 'ifs', 'list', \
-		'globals', 'defaults', 'right', 'fail', 'isdecimal', \
-		'argnames', 'decorators', 'body', 'args', 'attrname', \
-		'handlers', 'items', 'assign', 'subs', 'names', 'iter', \
-		'imag', 'is_outmost', 'expr', 'value', 'final', \
-		'conjugate', 'expr2', 'expr1', 'quals', 'test', 'node', \
-		'expr3', 'grammar', 'varargs', 'else_', 'doc', 'flags', \
-		'op', 'left']
-	
-	# Modules are a special case, since they change the module data
-	if tree.__class__ == Module:
-		# We can forget about the module which this module node's in,
-		# since we should have already assigned its metadata which
-		# includes it :)
-		tree._namespace = []
-		# Thus we need to recurse through everything that we care about
-		# which may be in this node
-		for name in set(attributes).intersection(set(dir(tree))):
-			try:
-				tree.__setattr__(name, \
-					populate_modules(tree.__getattribute__(name), tree))
-			except AttributeError:
-				pass
-		return tree
-				
-	# If we're not a Module, but we're still a Node, then do the same
-	# recursion, but with the module we've been given
-	if isinstance(tree, Node):
-		for name in set(attributes).intersection(set(dir(tree))):
-			try:
-				tree.__setattr__(name, \
-					populate_modules(tree.__getattribute__(name), \
-						module))
-			except AttributeError:
-				pass
-		return tree
-	# We may be a list, tuple, dictionary, number or string
-	elif type(tree) == type([]):
-		# We're a list
-		old_list = tree[:]		# Copy it
-		new_list = []		# Make a new list to return
-		while len(old_list) > 0:
-			new_list.append(populate_modules(old_list.pop(0), module))
-		return new_list
-	elif type(tree) == type(()):
-		# We're a tuple
-		new_tuple = ()		# Make a new tuple to return
-		for item in tree:
-			new_tuple = new_tuple + (populate_modules(item, module),)
-		return new_tuple
-	elif type(tree) == type({}):
-		# We're a dictionary
-		new_dictionary = {}
-		for k in tree.keys():
-			new_dictionary[k] = populate_modules(tree[k], module)
-		return new_dictionary
-	return tree
-		
+# Diet Python is implemented by transforming the Abstract Syntax
+# Tree. Here we define the tree transformations we wish to make, using
+# PyMeta.
 
-grammar_def = grammar_def + """
+tree_transform = """
+# "thing" matches anything, applying transforms to those which have them
+thing ::= <add>:a			=> a
+        | <callfunc>:c		=> c
+        | <const>:c			=> c
+        | <discard>:d		=> d
+        | <getattr>:g		=> g
+        | <module>:m		=> m
+        | <name>:n			=> n
+        | <statement>:s		=> s
+
 # a + b becomes a.__add__(b)
-add :i ::= <anything>:a ?(a.__class__ == Add) => a.left.rec(i)+'.__add__('+a.right.rec(i)+')'
+add ::= <anything>:a ?(a.__class__ == Add) => CallFunc(Getattr(a.left, '__add__'), [a.right], None, None).trans()
 
-# assert things becomes assert(things)
+# Recurse through function calls
+callfunc ::= <anything>:a ?(a.__class__ == CallFunc and a.star_args is None and a.dstar_args is None) => CallFunc(a.node.trans(), [r.trans() for r in a.args])
+           | <anything>:a ?(a.__class__ == CallFunc and a.star_args is None and a.dstar_args is not None) => CallFunc(a.node.trans(), [r.trans() for r in a.args], None, a.dstar_args.trans())
+           | <anything>:a ?(a.__class__ == CallFunc and a.star_args is not None and a.dstar_args is None) => CallFunc(a.node.trans(), [r.trans() for r in a.args], a.star_args.trans())
+           | <anything>:a ?(a.__class__ == CallFunc and a.star_args is not None and a.dstar_args is not None) => CallFunc(a.node.trans(), [r.trans() for r in a.args], a.star_args.trans(), a.dstar_args.trans())
+
+# Recurse through constants
+const ::= <anything>:a ?(a.__class__ == Const) => Const(a.value)
+
+# Recurse through operations which are not saved
+discard ::= <anything>:a ?(a.__class__ == Discard) => Discard(a.expr.trans())
+
+# Recurse through attribute lookups
+getattr ::= <anything>:a ?(a.__class__ == Getattr) => Getattr(a.expr.trans(), a.attrname)
+
+# Recurse through Python modules
+module ::= <anything>:a ?(a.__class__ == Module) => Module(a.doc, a.node.trans())
+
+# Recurse through names
+name ::= <anything>:a ?(a.__class__ == Name) => Name(a.name)
+
+# Recurse through code blocks
+statement ::= <anything>:a ?(a.__class__ == Stmt) => Stmt([n.trans() for n in a.nodes])
+
+"""
+
+# The definitions below try to write straight to code, so they need to
+# be rewritten as tree transforms like the above
+"""# assert things becomes assert(things)
 assert :i ::= <anything>:a ?(a.__class__ == Assert) ?(a.fail is None) => 'assert('+a.test.rec(i)+')'
             | <anything>:a ?(a.__class__ == Assert) ?(not a.fail is None) => 'assert('+a.test.rec(i)+', '+a.fail.rec(i)+')'
 
 # a += b becomes a = a.__add__(b)
 # To do this we put the left = left then transform the operation and append it to the end
 augassign :i ::= <anything>:a ?(a.__class__ == AugAssign) => a.node.rec(i)+' = '+eval('parse("'+a.node.rec(i)+a.op[:-1]+a.expr.rec(i)+'").rec('+str(i)+').strip()')
+
+# Ideally we only want to call functions as attributes of named objects,
+# so we split apart chained function calls and assign each to a
+# temporary variable before we continue
+callfunc :i ::= <anything>:a ?(a.__class__ == CallFunc)
 
 # a / b becomes a.__div__(b)
 div :i ::= <anything>:a ?(a.__class__ == Div) => a.left.rec(i)+'.__div__('+a.right.rec(i)+')'
@@ -266,7 +90,7 @@ div :i ::= <anything>:a ?(a.__class__ == Div) => a.left.rec(i)+'.__div__('+a.rig
 # Function definition involves more than it appears at first glance. We
 # need to:
 # * make a callable object (ie. the function)
-# 
+#
 # * bind the function's docstring to func_doc and __doc__ (even if it's
 #    None)
 # * bind the function's name to func_name and __name__
@@ -286,27 +110,68 @@ sub :i ::= <anything>:a ?(a.__class__ == Sub) => a.left.rec(i)+'.__sub__('+a.rig
 
 """
 
-grammar = OMeta.makeGrammar(strip_comments(grammar_def), globals())
-Node.grammar = grammar
+# Now we embed the transformations in every AST node, so that they can
+# apply them recursively to their children
+transforms = OMeta.makeGrammar(strip_comments(tree_transform), globals())
+Node.tree_transform = tree_transform
+Node.transforms = transforms
+
+def trans(self):
+	"""This creates a tree transformer with the current instance as
+	the input. It then applies the "thing" rule. Finally it returns
+	the result."""
+	# Uncomment to see exactly which bits are causing errors
+	#print str(self)
+	
+	self.transformer = self.transforms([self])
+	
+	r = self.transformer.apply('thing')
+	
+	return r
+	
+Node.trans = trans
 
 def translate(path_or_text, initial_indent=0):
+	"""This performs the translation from Python to Diet Python. It
+	takes in Python code (assuming the string to be a file path, falling
+	back to treating it as Python code if it is not a valid path) and
+	emits Diet Python code."""
+	# See if the given string is a valid path
 	if os.path.exists(path_or_text):
+		# If so then open it and read the file contents into in_text
 		infile = open(path_or_text, 'r')
 		in_text = '\n'.join([line for line in infile.readlines()])
+		infile.close()
+	# Otherwise take the string contents to be in_text
 	else:
 		in_text = path_or_text
+		
+	# Wrap in try/except to give understandable error messages (PyMeta's
+	# are full of obscure implementation details)
 	try:
+		# Get an Abstract Syntax Tree for the contents of in_text
 		tree = parse(in_text)
-		tree = assign_populate(tree)
-		tree = populate_modules(tree)
-		#	#tree = populate_functions(tree)
-		diet_code = tree.rec(0)#matcher.rec(0)#('python', initial_indent)
+		
+		# Transform the Python AST into a Diet Python AST
+		diet_tree = tree.trans()
+		
+		print str(tree)
+		print str(diet_tree)
+		
+		# Generate (Diet) Python code to match the transformed tree
+		diet_code = diet_tree.rec(initial_indent)
+		
 		return diet_code
+		
 	except Exception, e:
-		print str(e)
-		print 'Unable to translate.'
+		sys.stderr.write(str(e)+'\n')
+		sys.stderr.write('Unable to translate.\n')
 		sys.exit(1)
 
 if __name__ == '__main__':
+	# TODO: Allow passing the initial indentation
+	# TODO: Allow specifying an output file
 	if len(sys.argv) == 2:
 		print translate(sys.argv[1])
+	else:
+		print "Usage: diet_python.py input_path_or_raw_python_code"
