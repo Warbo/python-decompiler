@@ -30,15 +30,17 @@ from pymeta.grammar import OMeta
 
 tree_transform = """
 # "thing" matches anything, applying transforms to those which have them
-thing ::= <add>:a			=> a
-        | <callfunc>:c		=> c
-        | <const>:c			=> c
-        | <discard>:d		=> d
-        | <div>:d			=> d
-        | <getattr>:g		=> g
-        | <module>:m		=> m
-        | <name>:n			=> n
-        | <statement>:s		=> s
+thing ::= <add>
+        | <callfunc>
+        | <const>
+        | <discard>
+        | <div>
+        | <getattr>
+        | <module>
+        | <mul>
+        | <name>
+        | <statement>
+        | <sub>
 
 # a + b becomes a.__add__(b)
 add ::= <anything>:a ?(a.__class__ == Add) => CallFunc(Getattr(a.left, '__add__'), [a.right], None, None).trans()
@@ -56,7 +58,7 @@ const ::= <anything>:a ?(a.__class__ == Const) => Const(a.value)
 discard ::= <anything>:a ?(a.__class__ == Discard) => Discard(a.expr.trans())
 
 # a / b becomes a.__div__(b)
-div ::= <anything>:a ?(a.__class__ == Div) => Div((a.left.trans(), a.right.trans()))
+div ::= <anything>:a ?(a.__class__ == Div) => CallFunc(Getattr(a.left, '__div__'), [a.right], None, None).trans()
 
 # Recurse through attribute lookups
 getattr ::= <anything>:a ?(a.__class__ == Getattr) => Getattr(a.expr.trans(), a.attrname)
@@ -64,11 +66,17 @@ getattr ::= <anything>:a ?(a.__class__ == Getattr) => Getattr(a.expr.trans(), a.
 # Recurse through Python modules
 module ::= <anything>:a ?(a.__class__ == Module) => Module(a.doc, a.node.trans())
 
+# a * b becomes a.__mul__(b)
+mul ::= <anything>:a ?(a.__class__ == Mul) => CallFunc(Getattr(a.left, '__mul__'), [a.right], None, None).trans()
+
 # Recurse through names
 name ::= <anything>:a ?(a.__class__ == Name) => Name(a.name)
 
 # Recurse through code blocks
 statement ::= <anything>:a ?(a.__class__ == Stmt) => Stmt([n.trans() for n in a.nodes])
+
+# a - b becomes a.__sub__(b)
+sub ::= <anything>:a ?(a.__class__ == Sub) => CallFunc(Getattr(a.left, '__sub__'), [a.right], None, None).trans()
 
 """
 
@@ -125,7 +133,7 @@ def trans(self):
 	the input. It then applies the "thing" rule. Finally it returns
 	the result."""
 	# Uncomment to see exactly which bits are causing errors
-	print str(self)
+	#print str(self)
 	
 	self.transformer = self.transforms([self])
 	
@@ -159,8 +167,8 @@ def translate(path_or_text, initial_indent=0):
 		# Transform the Python AST into a Diet Python AST
 		diet_tree = tree.trans()
 		
-		print str(tree)
-		print str(diet_tree)
+		#print str(tree)
+		#print str(diet_tree)
 		
 		# Generate (Diet) Python code to match the transformed tree
 		diet_code = diet_tree.rec(initial_indent)
