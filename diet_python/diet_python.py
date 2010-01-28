@@ -31,19 +31,112 @@ from pymeta.grammar import OMeta
 tree_transform = """
 # "thing" matches anything, applying transforms to those which have them
 thing ::= <add>
+        | <and>
+        | <assattr>
+        | <asslist>
+        | <assname>
+        | <asstuple>
+        | <assert>
+        | <assign>
+        | <augassign>
+        | <backquote>
+        | <bitand>
+        | <bitor>
+        | <bitxor>
+        | <break>
         | <callfunc>
+        | <class>
+        | <compare>
         | <const>
+        | <continue>
+        | <decorators>
+        | <dict>
         | <discard>
         | <div>
+        | <ellipsis>
+        | <emptynode>
+        | <exec>
+        | <expression>
+        | <floordiv>
+        | <for>
+        | <from>
+        | <function>
+        | <genexpr>
+        | <genexprfor>
+        | <genexprif>
+        | <genexprinner>
         | <getattr>
+        | <global>
+        | <if>
+        | <ifexp>
+        | <import>
+        | <invert>
+        | <keyword>
+        | <lambda>
+        | <leftshift>
+        | <list>
+        | <listcomp>
+        | <listcompfor>
+        | <listcompif>
+        | <mod>
         | <module>
         | <mul>
         | <name>
-        | <statement>
+        | <not>
+        | <or>
+        | <pass>
+        | <power>
+        | <print>
+        | <printnl>
+        | <raise>
+        | <return>
+        | <rightshift>
+        | <slice>
+        | <sliceobj>
+        | <stmt>
         | <sub>
+        | <subscript>
+        | <tryexcept>
+        | <tryfinally>
+        | <tuple>
+        | <unaryadd>
+        | <unarysub>
+        | <while>
+        | <with>
+        | <yield>
 
 # a + b becomes a.__add__(b)
 add ::= <anything>:a ?(a.__class__ == Add) => CallFunc(Getattr(a.left, '__add__'), [a.right], None, None).trans()
+
+# a and b becomes a.__and__(b)
+# a and b and c and d becomes a.__and__(b.__and__(c.__and__(d)))
+and ::= <anything>:a ?(a.__class__ == And and len(a.nodes) > 2) => CallFunc(Getattr(a.nodes[0], '__and__'), [And(a.nodes[1:]).trans()], None, None).trans()
+      | <anything>:a ?(a.__class__ == And) => CallFunc(Getattr(a.nodes[0], '__and__'), [a.nodes[1]], None, None).trans()
+
+# Recurse through attribute assignment
+assattr ::= <anything>:a ?(a.__class__ == AssAttr) => AssAttr(a.expr.trans(), a.attrname, a.flags)
+
+asslist ::= <anything>:a ?(a.__class__ == AssList) => AssList([n.trans() for n in a.nodes])
+
+assname ::= <anything>:a ?(a.__class__ == AssName) => AssName(a.name, a.flags)
+
+asstuple ::= <anything>:a ?(a.__class__ == AssTuple) => AssTuple([n.trans() for n in a.nodes])
+
+assert ::= <anything>:a ?(a.__class__ == Assert) => Assert(a.test.trans(), a.fail.trans())
+
+assign ::= <anything>:a ?(a.__class__ == Assign) => Assign([n.trans() for n in a.nodes], a.expr.trans())
+
+augassign ::= <anything>:a ?(a.__class__ == AugAssign) => 
+
+backquote ::= <anything>:a ?(a.__class__ == Backquote) => 
+
+bitand ::= <anything>:a ?(a.__class__ == Bitand) => 
+
+bitor ::= <anything>:a ?(a.__class__ == Bitor) => 
+
+bitxor ::= <anything>:a ?(a.__class__ == Bitxor) => 
+
+break ::= <anything>:a ?(a.__class__ == Break) => 
 
 # Recurse through function calls
 callfunc ::= <anything>:a ?(a.__class__ == CallFunc and a.star_args is None and a.dstar_args is None) => CallFunc(a.node.trans(), [r.trans() for r in a.args])
@@ -51,8 +144,18 @@ callfunc ::= <anything>:a ?(a.__class__ == CallFunc and a.star_args is None and 
            | <anything>:a ?(a.__class__ == CallFunc and a.star_args is not None and a.dstar_args is None) => CallFunc(a.node.trans(), [r.trans() for r in a.args], a.star_args.trans())
            | <anything>:a ?(a.__class__ == CallFunc and a.star_args is not None and a.dstar_args is not None) => CallFunc(a.node.trans(), [r.trans() for r in a.args], a.star_args.trans(), a.dstar_args.trans())
 
+class ::= <anything>:a ?(a.__class__ == Class) => Class()
+
+compare ::= <anything>:a ?(a.__class__ == Compare) => Compare()
+
 # Recurse through constants
 const ::= <anything>:a ?(a.__class__ == Const) => Const(a.value)
+
+continue ::= <anything>:a ?(a.__class__ == Continue) => Continue()
+
+decorators ::= <anything>:a ?(a.__class__ == Decorators) => Decorators()
+
+dict ::= <anything>:a ?(a.__class__ == Dict) => Dict()
 
 # Recurse through operations which are not saved
 discard ::= <anything>:a ?(a.__class__ == Discard) => Discard(a.expr.trans())
@@ -60,8 +163,61 @@ discard ::= <anything>:a ?(a.__class__ == Discard) => Discard(a.expr.trans())
 # a / b becomes a.__div__(b)
 div ::= <anything>:a ?(a.__class__ == Div) => CallFunc(Getattr(a.left, '__div__'), [a.right], None, None).trans()
 
+ellipsis ::= <anything>:a ?(a.__class__ == Ellipsis) => Ellipsis()
+
+# FIXME: Should this exist?
+emptynode ::= <anything>:a ?(a.__class__ == EmptyNode) => EmptyNode()
+
+exec ::= <anything>:a ?(a.__class__ == Exec) => Exec()
+
+expression ::= <anything>:a ?(a.__class__ == Expression) => Expression()
+
+# a // b becomes a.__floordiv__(b)
+floordiv ::= <anything>:a ?(a.__class__ == FloorDiv) => CallFunc(Getattr(a.left, '__floordiv__'), [a.right], None, None).trans()
+
+for ::= <anything>:a ?(a.__class__ == For) => For()
+
+from ::= <anything>:a ?(a.__class__ == From) => From()
+
+function ::= <anything>:a ?(a.__class__ == Function) => Function()
+
+genexpr ::= <anything>:a ?(a.__class__ == GenExpr) => GenExpr()
+
+genexprfor ::= <anything>:a ?(a.__class__ == GenExprFor) => GenExprFor()
+
+genexprif ::= <anything>:a ?(a.__class__ == GenExprIf) => GenExprIf()
+
+genexprinner ::= <anything>:a ?(a.__class__ == GenExprInner) => GenExprInner()
+
 # Recurse through attribute lookups
 getattr ::= <anything>:a ?(a.__class__ == Getattr) => Getattr(a.expr.trans(), a.attrname)
+
+global ::= <anything>:a ?(a.__class__ == Global) => Global()
+
+if ::= <anything>:a ?(a.__class__ == If) => If()
+
+ifexp ::= <anything>:a ?(a.__class__ == IfExp) => IfExp()
+
+import ::= <anything>:a ?(a.__class__ == Import) => Import()
+
+invert ::= <anything>:a ?(a.__class__ == Invert) => Invert()
+
+keyword ::= <anything>:a ?(a.__class__ == Keyword) => Keyword()
+
+lambda ::= <anything>:a ?(a.__class__ == Lambda) => Lambda()
+
+leftshift ::= <anything>:a ?(a.__class__ == LeftShift) => LeftShift()
+
+list ::= <anything>:a ?(a.__class__ == List) => List()
+
+listcomp ::= <anything>:a ?(a.__class__ == ListComp) => ListComp()
+
+listcompfor ::= <anything>:a ?(a.__class__ == ListCompFor) => ListCompFor()
+
+listcompif ::= <anything>:a ?(a.__class__ == ListCompIf) => ListCompIf()
+
+# a % b becomes a.__mod__(b)
+mod ::= <anything>:a ?(a.__class__ == Mod) => CallFunc(Getattr(a.left, '__mod__'), [a.right], None, None).trans()
 
 # Recurse through Python modules
 module ::= <anything>:a ?(a.__class__ == Module) => Module(a.doc, a.node.trans())
@@ -72,11 +228,53 @@ mul ::= <anything>:a ?(a.__class__ == Mul) => CallFunc(Getattr(a.left, '__mul__'
 # Recurse through names
 name ::= <anything>:a ?(a.__class__ == Name) => Name(a.name)
 
+# 
+not ::= <anything>:a ?(a.__class__ == Not) => Not()
+
+or ::= <anything>:a ?(a.__class__ == Or) => Or()
+
+pass ::= <anything>:a ?(a.__class__ == Pass) => Pass()
+
+power ::= <anything>:a ?(a.__class__ == Power) => Power()
+
+print ::= <anything>:a ?(a.__class__ == Print) => Print()
+
+printnl ::= <anything>:a ?(a.__class__ == Printnl) => Printnl()
+
+raise ::= <anything>:a ?(a.__class__ == Raise) => Raise()
+
+return ::= <anything>:a ?(a.__class__ == Return) => Return()
+
+rightshift ::= <anything>:a ?(a.__class__ == RightShift) => RightShift()
+
+slice ::= <anything>:a ?(a.__class__ == Slice) => Slice()
+
+sliceobj ::= <anything>:a ?(a.__class__ == Sliceobj) => Sliceobj()
+
 # Recurse through code blocks
-statement ::= <anything>:a ?(a.__class__ == Stmt) => Stmt([n.trans() for n in a.nodes])
+stmt ::= <anything>:a ?(a.__class__ == Stmt) => Stmt([n.trans() for n in a.nodes])
 
 # a - b becomes a.__sub__(b)
 sub ::= <anything>:a ?(a.__class__ == Sub) => CallFunc(Getattr(a.left, '__sub__'), [a.right], None, None).trans()
+
+subscript ::= <anything>:a ?(a.__class__ == Subscript) => Subscript()
+
+tryexcept ::= <anything>:a ?(a.__class__ == TryExcept) => TryExcept()
+
+tryfinally ::= <anything>:a ?(a.__class__ == TryFinally) => TryFinally()
+
+tuple ::= <anything>:a ?(a.__class__ == Tuple) => Tuple()
+
+unaryadd ::= <anything>:a ?(a.__class__ == UnaryAdd) => UnaryAdd()
+
+unarysub ::= <anything>:a ?(a.__class__ == UnarySub) => UnarySub()
+
+while ::= <anything>:a ?(a.__class__ == While) => While()
+
+with ::= <anything>:a ?(a.__class__ == With) => With()
+
+# Recurse through Yields
+yield ::= <anything>:a ?(a.__class__ == Yield) => Yield(a.value.trans())
 
 """
 
@@ -133,7 +331,7 @@ def trans(self):
 	the input. It then applies the "thing" rule. Finally it returns
 	the result."""
 	# Uncomment to see exactly which bits are causing errors
-	#print str(self)
+	print str(self)
 	
 	self.transformer = self.transforms([self])
 	
@@ -173,7 +371,12 @@ def translate(path_or_text, initial_indent=0):
 		# Generate (Diet) Python code to match the transformed tree
 		diet_code = diet_tree.rec(initial_indent)
 		
-		return diet_code
+		print str(tree)
+		print
+		print str(diet_tree)
+		print
+		
+		print diet_code
 		
 	except Exception, e:
 		sys.stderr.write(str(e)+'\n')
@@ -184,6 +387,6 @@ if __name__ == '__main__':
 	# TODO: Allow passing the initial indentation
 	# TODO: Allow specifying an output file
 	if len(sys.argv) == 2:
-		print translate(sys.argv[1])
+		translate(sys.argv[1])
 	else:
 		print "Usage: diet_python.py input_path_or_raw_python_code"

@@ -51,6 +51,7 @@ tests = [\
 	Test('Addition','1+2', ['Statement', 'Constant']), \
 	Test('And', '1 and True', ['Name', 'Constant']), \
 	Test('Assign Attribute', 'x.name = "ex"', ['Statement', 'Name']), \
+	Test('Assign List', '[a,b,c] = x', ['Statement', 'Name', 'Assign']), \
 	Test('Assign Name', """x = 10
 """, ['Name', 'Constant', 'Assign']), \
 	Test('Assign Tuple', """

@@ -196,7 +196,8 @@ and :i ::= <anything>:a ?(a.__class__ == And) => '('+') and ('.join([n.rec(i) fo
 # Matches the binding of an object to a member name of another object
 assattr :i ::= <anything>:a ?(a.__class__ == AssAttr) => a.expr.rec(i)+'.'+a.attrname
 
-asslist :i ::= <anything>:a ?(a.__class__ == AssList) => ''
+# Matches the binding of a list of items
+asslist :i ::= <anything>:a ?(a.__class__ == AssList) => '[' + ', '.join([n.rec(i) for n in a.nodes]) + ']'
 
 # AssName assigns to a variable name
 # We want the variable name
