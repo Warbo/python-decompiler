@@ -24,6 +24,22 @@ from python_rewriter.base import grammar_def, strip_comments, parse, constants
 from python_rewriter.nodes import *
 from pymeta.grammar import OMeta
 
+def apply(arg):
+	"""Runs transformations on the argument. If the argument has a trans
+	method, that is run; if it is a list, apply is mapped to the list;
+	if it is a "type" (None, str, etc.) then that is returned unchanged.
+	"""
+	if type(arg) in [type('string'), type(0), type(None)]:
+		return arg
+	elif type(arg) == type([0,1]):
+		return map(apply, arg)
+	elif type(arg) == type((0,1)):
+		return tuple(map(apply, arg))
+	elif 'trans' in dir(arg):
+		return arg.trans()
+	else:
+		raise Exception("Couldn't transform "+str(arg))
+
 # Diet Python is implemented by transforming the Abstract Syntax
 # Tree. Here we define the tree transformations we wish to make, using
 # PyMeta.
@@ -106,217 +122,228 @@ thing ::= <add>
         | <yield>
 
 # a + b becomes a.__add__(b)
-add ::= <anything>:a ?(a.__class__ == Add) => CallFunc(Getattr(a.left, '__add__'), [a.right], None, None).trans()
+add ::= <anything>:a ?(a.__class__ == Add) => apply(CallFunc(Getattr(a.left, '__add__'), [a.right], None, None))
 
 # a and b becomes a.__and__(b)
 # a and b and c and d becomes a.__and__(b.__and__(c.__and__(d)))
-and ::= <anything>:a ?(a.__class__ == And and len(a.nodes) > 2) => CallFunc(Getattr(a.nodes[0], '__and__'), [And(a.nodes[1:]).trans()], None, None).trans()
-      | <anything>:a ?(a.__class__ == And) => CallFunc(Getattr(a.nodes[0], '__and__'), [a.nodes[1]], None, None).trans()
+and ::= <anything>:a ?(a.__class__ == And and len(a.nodes) > 2) => apply(CallFunc(Getattr(a.nodes[0], '__and__'), apply([And(a.nodes[1:])]), None, None))
+      | <anything>:a ?(a.__class__ == And) => apply(CallFunc(Getattr(a.nodes[0], '__and__'), [a.nodes[1]], None, None))
 
 # Recurse through attribute assignment
-assattr ::= <anything>:a ?(a.__class__ == AssAttr) => AssAttr(a.expr.trans(), a.attrname, a.flags)
+assattr ::= <anything>:a ?(a.__class__ == AssAttr) => AssAttr(apply(a.expr), apply(a.attrname), apply(a.flags))
 
-asslist ::= <anything>:a ?(a.__class__ == AssList) => AssList([n.trans() for n in a.nodes])
+# Recurse through list assignment
+asslist ::= <anything>:a ?(a.__class__ == AssList) => AssList(apply(a.nodes))
 
-assname ::= <anything>:a ?(a.__class__ == AssName) => AssName(a.name, a.flags)
+# Recurse through name assignment
+assname ::= <anything>:a ?(a.__class__ == AssName) => AssName(apply(a.name), apply(a.flags))
 
-asstuple ::= <anything>:a ?(a.__class__ == AssTuple) => AssTuple([n.trans() for n in a.nodes])
+# Recurse through tuple assignment
+asstuple ::= <anything>:a ?(a.__class__ == AssTuple) => AssTuple(apply(a.nodes))
 
-assert ::= <anything>:a ?(a.__class__ == Assert) => Assert(a.test.trans(), a.fail.trans())
+# Recurse through assertions
+assert ::= <anything>:a ?(a.__class__ == Assert) => Assert(apply(a.test), apply(a.fail))
 
-assign ::= <anything>:a ?(a.__class__ == Assign) => Assign([n.trans() for n in a.nodes], a.expr.trans())
+# Recurse through assignments
+assign ::= <anything>:a ?(a.__class__ == Assign) => Assign(apply(a.nodes), apply(a.expr))
 
-augassign ::= <anything>:a ?(a.__class__ == AugAssign) => 
+# a += b becomes a = a.__add__(b), etc.
+augassign ::= <anything>:a ?(a.__class__ == AugAssign) => apply(parse(a.node.rec(0)+'='+a.node.rec(0)+a.op[0]+a.expr.rec(0)))
 
-backquote ::= <anything>:a ?(a.__class__ == Backquote) => 
+# Recurse through backquotes
+backquote ::= <anything>:a ?(a.__class__ == Backquote) => Backquote(apply(a.expr))
 
-bitand ::= <anything>:a ?(a.__class__ == Bitand) => 
+# Recurse through bitwise AND
+bitand ::= <anything>:a ?(a.__class__ == Bitand) => Bitand(apply(a.nodes))
 
-bitor ::= <anything>:a ?(a.__class__ == Bitor) => 
+# Recurse through bitwise OR
+bitor ::= <anything>:a ?(a.__class__ == Bitor) => Bitor(apply(a.nodes))
 
-bitxor ::= <anything>:a ?(a.__class__ == Bitxor) => 
+# Recurse through bitwise XOR
+bitxor ::= <anything>:a ?(a.__class__ == Bitxor) => Bitxor(apply(a.nodes))
 
-break ::= <anything>:a ?(a.__class__ == Break) => 
+# Recurse through breaks
+break ::= <anything>:a ?(a.__class__ == Break) => Break()
 
 # Recurse through function calls
-callfunc ::= <anything>:a ?(a.__class__ == CallFunc and a.star_args is None and a.dstar_args is None) => CallFunc(a.node.trans(), [r.trans() for r in a.args])
-           | <anything>:a ?(a.__class__ == CallFunc and a.star_args is None and a.dstar_args is not None) => CallFunc(a.node.trans(), [r.trans() for r in a.args], None, a.dstar_args.trans())
-           | <anything>:a ?(a.__class__ == CallFunc and a.star_args is not None and a.dstar_args is None) => CallFunc(a.node.trans(), [r.trans() for r in a.args], a.star_args.trans())
-           | <anything>:a ?(a.__class__ == CallFunc and a.star_args is not None and a.dstar_args is not None) => CallFunc(a.node.trans(), [r.trans() for r in a.args], a.star_args.trans(), a.dstar_args.trans())
+callfunc ::= <anything>:a ?(a.__class__ == CallFunc) => CallFunc(apply(a.node), apply(a.args), apply(a.star_args), apply(a.dstar_args))
 
-class ::= <anything>:a ?(a.__class__ == Class) => Class()
+# Recurse through class definitions
+class ::= <anything>:a ?(a.__class__ == Class) => Class(apply(a.name), apply(a.bases), apply(a.doc), apply(a.code), apply(a.decorators))
 
-compare ::= <anything>:a ?(a.__class__ == Compare) => Compare()
+# Recurse through comparisons
+compare ::= <anything>:a ?(a.__class__ == Compare) => Compare(apply(a.expr), apply(a.ops))
 
 # Recurse through constants
-const ::= <anything>:a ?(a.__class__ == Const) => Const(a.value)
+const ::= <anything>:a ?(a.__class__ == Const) => Const(apply(a.value))
 
+# Recurse through continues
 continue ::= <anything>:a ?(a.__class__ == Continue) => Continue()
 
-decorators ::= <anything>:a ?(a.__class__ == Decorators) => Decorators()
+# Recurse through decorators
+decorators ::= <anything>:a ?(a.__class__ == Decorators) => Decorators(apply(a.nodes))
 
-dict ::= <anything>:a ?(a.__class__ == Dict) => Dict()
+# Recurse through dictionaries
+dict ::= <anything>:a ?(a.__class__ == Dict) => Dict(apply(a.items))
 
 # Recurse through operations which are not saved
-discard ::= <anything>:a ?(a.__class__ == Discard) => Discard(a.expr.trans())
+discard ::= <anything>:a ?(a.__class__ == Discard) => Discard(apply(a.expr))
 
 # a / b becomes a.__div__(b)
-div ::= <anything>:a ?(a.__class__ == Div) => CallFunc(Getattr(a.left, '__div__'), [a.right], None, None).trans()
+div ::= <anything>:a ?(a.__class__ == Div) => apply(CallFunc(Getattr(a.left, '__div__'), [a.right], None, None))
 
+# Recurse through ellipses
 ellipsis ::= <anything>:a ?(a.__class__ == Ellipsis) => Ellipsis()
 
-# FIXME: Should this exist?
+# Recurse through empty nodes
 emptynode ::= <anything>:a ?(a.__class__ == EmptyNode) => EmptyNode()
 
-exec ::= <anything>:a ?(a.__class__ == Exec) => Exec()
+# Recurse through code interpretation
+exec ::= <anything>:a ?(a.__class__ == Exec) => Exec(apply(a.expr), apply(a.locals), apply(a.globals))
 
-expression ::= <anything>:a ?(a.__class__ == Expression) => Expression()
+# Recurse through expressions
+expression ::= <anything>:a ?(a.__class__ == Expression) => Expression(apply(a.node))
 
 # a // b becomes a.__floordiv__(b)
-floordiv ::= <anything>:a ?(a.__class__ == FloorDiv) => CallFunc(Getattr(a.left, '__floordiv__'), [a.right], None, None).trans()
+floordiv ::= <anything>:a ?(a.__class__ == FloorDiv) => apply(CallFunc(Getattr(a.left, '__floordiv__'), [a.right], None, None))
 
-for ::= <anything>:a ?(a.__class__ == For) => For()
+# Recurse through for loops
+for ::= <anything>:a ?(a.__class__ == For) => For(apply(a.assign), apply(a.list), apply(a.body), apply(a.else_))
 
-from ::= <anything>:a ?(a.__class__ == From) => From()
+# Recurse through namespace injections
+from ::= <anything>:a ?(a.__class__ == From) => From(apply(a.modname), apply(a.names), apply(a.level))
 
-function ::= <anything>:a ?(a.__class__ == Function) => Function()
+# Recurse through function definition
+function ::= <anything>:a ?(a.__class__ == Function) => Function(apply(a.decorators), apply(a.name), apply(a.argnames), apply(a.defaults), apply(a.flags), apply(a.doc), apply(a.code))
 
-genexpr ::= <anything>:a ?(a.__class__ == GenExpr) => GenExpr()
+# Recurse through generative expressions
+genexpr ::= <anything>:a ?(a.__class__ == GenExpr) => GenExpr(apply(a.code))
 
-genexprfor ::= <anything>:a ?(a.__class__ == GenExprFor) => GenExprFor()
+# Recurse through generative for loops
+genexprfor ::= <anything>:a ?(a.__class__ == GenExprFor) => GenExprFor(apply(a.assign), apply(a.iter), apply(a.ifs))
 
-genexprif ::= <anything>:a ?(a.__class__ == GenExprIf) => GenExprIf()
+# Recurse through conditional generation
+genexprif ::= <anything>:a ?(a.__class__ == GenExprIf) => GenExprIf(apply(a.test))
 
-genexprinner ::= <anything>:a ?(a.__class__ == GenExprInner) => GenExprInner()
+# Recurse through generative expressions
+genexprinner ::= <anything>:a ?(a.__class__ == GenExprInner) => GenExprInner(apply(a.expr), apply(a.quals))
 
 # Recurse through attribute lookups
-getattr ::= <anything>:a ?(a.__class__ == Getattr) => Getattr(a.expr.trans(), a.attrname)
+getattr ::= <anything>:a ?(a.__class__ == Getattr) => Getattr(apply(a.expr), apply(a.attrname))
 
-global ::= <anything>:a ?(a.__class__ == Global) => Global()
+# Recurse through global definitions
+global ::= <anything>:a ?(a.__class__ == Global) => Global(apply(a.names))
 
-if ::= <anything>:a ?(a.__class__ == If) => If()
+# Recurse through conditional code
+if ::= <anything>:a ?(a.__class__ == If) => If(apply(a.tests), apply(a.else_))
 
-ifexp ::= <anything>:a ?(a.__class__ == IfExp) => IfExp()
+# Recurse through conditional code
+ifexp ::= <anything>:a ?(a.__class__ == IfExp) => IfExp(apply(a.test), apply(a.then), apply(a.else_))
 
-import ::= <anything>:a ?(a.__class__ == Import) => Import()
+# Recurse through namespace gathering
+import ::= <anything>:a ?(a.__class__ == Import) => Import(apply(a.names))
 
-invert ::= <anything>:a ?(a.__class__ == Invert) => Invert()
+# Recurse through value inversion
+invert ::= <anything>:a ?(a.__class__ == Invert) => Invert(apply(a.expr))
 
-keyword ::= <anything>:a ?(a.__class__ == Keyword) => Keyword()
+# Recurse through keywords
+keyword ::= <anything>:a ?(a.__class__ == Keyword) => Keyword(apply(a.name), apply(a.expr))
 
-lambda ::= <anything>:a ?(a.__class__ == Lambda) => Lambda()
+# Recurse through anonymous functions
+lambda ::= <anything>:a ?(a.__class__ == Lambda) => Lambda(apply(a.argnames), apply(a.defaults), apply(a.flags), apply(a.code))
 
-leftshift ::= <anything>:a ?(a.__class__ == LeftShift) => LeftShift()
+# Recurse through left bit shifts
+leftshift ::= <anything>:a ?(a.__class__ == LeftShift) => LeftShift((apply(a.left), apply(a.right)))
 
-list ::= <anything>:a ?(a.__class__ == List) => List()
+# Recurse through lists
+list ::= <anything>:a ?(a.__class__ == List) => List(apply(a.nodes))
 
-listcomp ::= <anything>:a ?(a.__class__ == ListComp) => ListComp()
+# Recurse through list comprehensions
+listcomp ::= <anything>:a ?(a.__class__ == ListComp) => ListComp(apply(a.expr), apply(a.quals))
 
-listcompfor ::= <anything>:a ?(a.__class__ == ListCompFor) => ListCompFor()
+# Recurse through list loops
+listcompfor ::= <anything>:a ?(a.__class__ == ListCompFor) => ListCompFor(apply(a.assign), apply(a.list), apply(a.ifs))
 
-listcompif ::= <anything>:a ?(a.__class__ == ListCompIf) => ListCompIf()
+# Recurse through conditional list comprehension
+listcompif ::= <anything>:a ?(a.__class__ == ListCompIf) => ListCompIf(apply(a.test))
 
 # a % b becomes a.__mod__(b)
-mod ::= <anything>:a ?(a.__class__ == Mod) => CallFunc(Getattr(a.left, '__mod__'), [a.right], None, None).trans()
+mod ::= <anything>:a ?(a.__class__ == Mod) => apply(CallFunc(Getattr(a.left, '__mod__'), [a.right], None, None))
 
 # Recurse through Python modules
-module ::= <anything>:a ?(a.__class__ == Module) => Module(a.doc, a.node.trans())
+module ::= <anything>:a ?(a.__class__ == Module) => Module(apply(a.doc), apply(a.node))
 
 # a * b becomes a.__mul__(b)
-mul ::= <anything>:a ?(a.__class__ == Mul) => CallFunc(Getattr(a.left, '__mul__'), [a.right], None, None).trans()
+mul ::= <anything>:a ?(a.__class__ == Mul) => apply(CallFunc(Getattr(a.left, '__mul__'), [a.right], None, None))
 
 # Recurse through names
-name ::= <anything>:a ?(a.__class__ == Name) => Name(a.name)
+name ::= <anything>:a ?(a.__class__ == Name) => Name(apply(a.name))
 
-# 
-not ::= <anything>:a ?(a.__class__ == Not) => Not()
+# Recurse through negation
+not ::= <anything>:a ?(a.__class__ == Not) => Not(apply(a.expr))
 
-or ::= <anything>:a ?(a.__class__ == Or) => Or()
+# Recurse through disjunction
+or ::= <anything>:a ?(a.__class__ == Or) => Or(apply(a.nodes))
 
+# Recurse through placeholders
 pass ::= <anything>:a ?(a.__class__ == Pass) => Pass()
 
-power ::= <anything>:a ?(a.__class__ == Power) => Power()
+# Recurse through exponentiation
+power ::= <anything>:a ?(a.__class__ == Power) => Power((apply(a.left), apply(a.right)))
 
-print ::= <anything>:a ?(a.__class__ == Print) => Print()
+# Recurse through output
+print ::= <anything>:a ?(a.__class__ == Print) => Print(apply(a.nodes), apply(a.dest))
 
-printnl ::= <anything>:a ?(a.__class__ == Printnl) => Printnl()
+# Recurse through output
+printnl ::= <anything>:a ?(a.__class__ == Printnl) => Printnl(apply(a.nodes), apply(a.dest))
 
-raise ::= <anything>:a ?(a.__class__ == Raise) => Raise()
+# Recurse through errors
+raise ::= <anything>:a ?(a.__class__ == Raise) => Raise(apply(a.expr1), apply(a.expr2), apply(a.expr3))
 
-return ::= <anything>:a ?(a.__class__ == Return) => Return()
+# Recurse through GOTOs
+return ::= <anything>:a ?(a.__class__ == Return) => Return(apply(a.value))
 
-rightshift ::= <anything>:a ?(a.__class__ == RightShift) => RightShift()
+# Recurse through right bit shifts
+rightshift ::= <anything>:a ?(a.__class__ == RightShift) => RightShift((apply(a.left), apply(a.right)))
 
-slice ::= <anything>:a ?(a.__class__ == Slice) => Slice()
+# Recurse through list slicing
+slice ::= <anything>:a ?(a.__class__ == Slice) => Slice(apply(a.expr), apply(a.flags), apply(a.lower), apply(a.upper))
 
-sliceobj ::= <anything>:a ?(a.__class__ == Sliceobj) => Sliceobj()
+# Recurse through list slicing objects
+sliceobj ::= <anything>:a ?(a.__class__ == Sliceobj) => Sliceobj(apply(a.nodes))
 
 # Recurse through code blocks
-stmt ::= <anything>:a ?(a.__class__ == Stmt) => Stmt([n.trans() for n in a.nodes])
+stmt ::= <anything>:a ?(a.__class__ == Stmt) => Stmt(apply(a.nodes))
 
 # a - b becomes a.__sub__(b)
-sub ::= <anything>:a ?(a.__class__ == Sub) => CallFunc(Getattr(a.left, '__sub__'), [a.right], None, None).trans()
+sub ::= <anything>:a ?(a.__class__ == Sub) => apply(CallFunc(Getattr(a.left, '__sub__'), [a.right], None, None))
 
-subscript ::= <anything>:a ?(a.__class__ == Subscript) => Subscript()
+# Recurse through indexing
+subscript ::= <anything>:a ?(a.__class__ == Subscript) => Subscript(apply(a.expr), apply(a.flags), apply(a.subs))
 
-tryexcept ::= <anything>:a ?(a.__class__ == TryExcept) => TryExcept()
+# Recurse through fallbacks
+tryexcept ::= <anything>:a ?(a.__class__ == TryExcept) => TryExcept(apply(a.body), apply(a.handlers), apply(a.else_))
 
-tryfinally ::= <anything>:a ?(a.__class__ == TryFinally) => TryFinally()
+# Recurse through cleanups
+tryfinally ::= <anything>:a ?(a.__class__ == TryFinally) => TryFinally(apply(a.body), apply(a.final))
 
-tuple ::= <anything>:a ?(a.__class__ == Tuple) => Tuple()
+# Recurse through immutable lists
+tuple ::= <anything>:a ?(a.__class__ == Tuple) => Tuple(apply(a.nodes))
 
-unaryadd ::= <anything>:a ?(a.__class__ == UnaryAdd) => UnaryAdd()
+# Recurse through +ve
+unaryadd ::= <anything>:a ?(a.__class__ == UnaryAdd) => UnaryAdd(apply(a.expr))
 
-unarysub ::= <anything>:a ?(a.__class__ == UnarySub) => UnarySub()
+# Recurse through -ve
+unarysub ::= <anything>:a ?(a.__class__ == UnarySub) => UnarySub(apply(a.expr))
 
-while ::= <anything>:a ?(a.__class__ == While) => While()
+# Recurse through boundless loops
+while ::= <anything>:a ?(a.__class__ == While) => While(apply(a.test), apply(a.body), apply(a.else_))
 
-with ::= <anything>:a ?(a.__class__ == With) => With()
+# Recurse through with?
+with ::= <anything>:a ?(a.__class__ == With) => With(apply(a.expr), apply(a.vars), apply(a.body))
 
 # Recurse through Yields
-yield ::= <anything>:a ?(a.__class__ == Yield) => Yield(a.value.trans())
-
-"""
-
-# The definitions below try to write straight to code, so they need to
-# be rewritten as tree transforms like the above
-"""# assert things becomes assert(things)
-assert :i ::= <anything>:a ?(a.__class__ == Assert) ?(a.fail is None) => 'assert('+a.test.rec(i)+')'
-            | <anything>:a ?(a.__class__ == Assert) ?(not a.fail is None) => 'assert('+a.test.rec(i)+', '+a.fail.rec(i)+')'
-
-# a += b becomes a = a.__add__(b)
-# To do this we put the left = left then transform the operation and append it to the end
-augassign :i ::= <anything>:a ?(a.__class__ == AugAssign) => a.node.rec(i)+' = '+eval('parse("'+a.node.rec(i)+a.op[:-1]+a.expr.rec(i)+'").rec('+str(i)+').strip()')
-
-# Ideally we only want to call functions as attributes of named objects,
-# so we split apart chained function calls and assign each to a
-# temporary variable before we continue
-callfunc :i ::= <anything>:a ?(a.__class__ == CallFunc)
-
-# a / b becomes a.__div__(b)
-div :i ::= <anything>:a ?(a.__class__ == Div) => a.left.rec(i)+'.__div__('+a.right.rec(i)+')'
-
-
-# Function definition involves more than it appears at first glance. We
-# need to:
-# * make a callable object (ie. the function)
-#
-# * bind the function's docstring to func_doc and __doc__ (even if it's
-#    None)
-# * bind the function's name to func_name and __name__
-# * bind the name of the module we're in to __module__
-# * bind a tuple of default argument values to func_defaults
-# * compile the function's code and bind it to func_code
-# * bind the namespace of __module__ to func_globals
-# * bind a dictionary of the function's namespace to func_dict
-# * bind a tuple of the function's free variables to func_closure
-function :i ::= <anything>:a ?(a.__class__ == Function) => function_writer(a, i)
-
-# a * b becomes a.__mul__(b)
-mul :i ::= <anything>:a ?(a.__class__ == Mul) => a.left.rec(i)+'.__mul__('+a.right.rec(i)+')'
-
-# a - b becomes a.__sub__(b)
-sub :i ::= <anything>:a ?(a.__class__ == Sub) => a.left.rec(i)+'.__sub__('+a.right.rec(i)+')'
+yield ::= <anything>:a ?(a.__class__ == Yield) => Yield(apply(a.value))
 
 """
 
