@@ -126,8 +126,7 @@ add ::= <anything>:a ?(a.__class__ == Add) => apply(CallFunc(Getattr(a.left, '__
 
 # a and b becomes a.__and__(b)
 # a and b and c and d becomes a.__and__(b.__and__(c.__and__(d)))
-and ::= <anything>:a ?(a.__class__ == And and len(a.nodes) > 2) => apply(CallFunc(Getattr(a.nodes[0], '__and__'), apply([And(a.nodes[1:])]), None, None))
-      | <anything>:a ?(a.__class__ == And) => apply(CallFunc(Getattr(a.nodes[0], '__and__'), [a.nodes[1]], None, None))
+and ::= <anything>:a ?(a.__class__ == And) => And(apply(a.nodes))
 
 # Recurse through attribute assignment
 assattr ::= <anything>:a ?(a.__class__ == AssAttr) => AssAttr(apply(a.expr), apply(a.attrname), apply(a.flags))
@@ -154,13 +153,16 @@ augassign ::= <anything>:a ?(a.__class__ == AugAssign) => apply(parse(a.node.rec
 backquote ::= <anything>:a ?(a.__class__ == Backquote) => Backquote(apply(a.expr))
 
 # Recurse through bitwise AND
-bitand ::= <anything>:a ?(a.__class__ == Bitand) => Bitand(apply(a.nodes))
+bitand ::= <anything>:a ?(a.__class__ == Bitand and len(a.nodes) > 2) => apply(CallFunc(Getattr(Bitand(a.nodes[:-1]), '__and__'), [a.nodes[-1]], None, None))
+         | <anything>:a ?(a.__class__ == Bitand) => apply(CallFunc(Getattr(a.nodes[0], '__and__'), [a.nodes[1]], None, None))
 
 # Recurse through bitwise OR
-bitor ::= <anything>:a ?(a.__class__ == Bitor) => Bitor(apply(a.nodes))
+bitor ::= <anything>:a ?(a.__class__ == Bitor and len(a.nodes) > 2) => apply(CallFunc(Getattr(Bitor(a.nodes[:-1]), '__or__'), [a.nodes[-1]], None, None))
+        | <anything>:a ?(a.__class__ == Bitor) => apply(CallFunc(Getattr(a.nodes[0], '__or__'), [a.nodes[1]], None, None))
 
 # Recurse through bitwise XOR
-bitxor ::= <anything>:a ?(a.__class__ == Bitxor) => Bitxor(apply(a.nodes))
+bitxor ::= <anything>:a ?(a.__class__ == Bitxor and len(a.nodes) > 2) => apply(CallFunc(Getattr(Bitxor(a.nodes[:-1]), '__xor__'), [a.nodes[-1]], None, None))
+         | <anything>:a ?(a.__class__ == Bitxor) => apply(CallFunc(Getattr(a.nodes[0], '__xor__'), [a.nodes[1]], None, None))
 
 # Recurse through breaks
 break ::= <anything>:a ?(a.__class__ == Break) => Break()
