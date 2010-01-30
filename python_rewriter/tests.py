@@ -1,3 +1,4 @@
+import sys
 import base
 from base import grammar as g
 import compiler
@@ -293,34 +294,114 @@ while x < 5:
 ]
 
 if __name__ == '__main__':
-	for test in tests:
-		test.run(g)
+	if len(sys.argv) == 1:
+		for test in tests:
+			test.run(g)
 
-	failed = []
-	succeeded = []
-	unknown = []
+		failed = []
+		succeeded = []
+		unknown = []
 
-	for test in tests:
-		if not test.result:
-			failed.append(test)
+		for test in tests:
+			if not test.result:
+				failed.append(test)
+			else:
+				succeeded.append(test)
+
+		for test in failed[:]:
+			for dep in test.deps:
+				for test2 in failed[:]:
+					if test2.name == dep:
+						try:
+							failed.remove(test)
+							unknown.append(test)
+						except ValueError:
+							pass
+
+		for s in succeeded:
+			print s.message
+
+		for u in unknown:
+			print u.name + ': Unknown (depends on broken rules)'
+
+		for f in failed:
+			print f.message
+
+	else:
+		if "-f" in sys.argv:
+			infile = open(sys.argv[sys.argv.index('-f')+1], 'r')
+			for line in infile.readlines():
+				testfile = open(line.strip(), 'r')
+				try:
+					tree = base.parse(''.join(testfile.readlines()))
+					testfile.close()
+				except Exception, e:
+					print str(e)
+					print "Error parsing "+line.strip()
+					continue
+				try:
+					code = tree.rec(0)
+				except Exception, e:
+					print str(e)
+					print "Error pretty printing "+line.strip()
+					continue
+				
+				try:
+					new_tree = base.parse(code)
+					del(code)
+				except Exception, e:
+					print str(e)
+					print "Error parsing generated code for "+line.strip()
+					continue
+	
+				try:
+					if new_tree != tree:
+						print "Error, trees don't match for "+line.strip()
+					else:
+						sys.stdout.write('.')
+						sys.stdout.flush()
+					del(tree)
+					del(new_tree)
+				except Exception, e:
+					print str(e)
+					print "Error comparing trees for "+line.strip()
+					continue
+		
 		else:
-			succeeded.append(test)
+			for name in sys.argv[1:]:
+				testfile = open(name, 'r')
+				try:
+					tree = base.parse(testfile)
+					testfile.close()
+				except Exception, e:
+					print str(e)
+					print "Error parsing "+name
+					continue
 
-	for test in failed[:]:
-		for dep in test.deps:
-			for test2 in failed[:]:
-				if test2.name == dep:
-					try:
-						failed.remove(test)
-						unknown.append(test)
-					except ValueError:
-						pass
+				try:
+					code = tree.rec(0)
+				except Exception, e:
+					print str(e)
+					print "Error generating code for "+name
+					continue
+				
+				try:
+					new_tree = base.parse(code)
+					del(code)
+				except Exception, e:
+					print str(e)
+					print "Error parsing generated code for "+name
+					continue
 
-	for s in succeeded:
-		print s.message
-
-	for u in unknown:
-		print u.name + ': Unknown (depends on broken rules)'
-
-	for f in failed:
-		print f.message
+				try:
+					if tree == new_tree:
+						sys.stdout.write('.')
+						sys.stdout.flush()
+					else:
+						print "Error, trees don't match for "+name
+					del(tree)
+					del(new_tree)
+				except Exception, e:
+					print str(e)
+					print "Error comparing trees for "+name
+					continue

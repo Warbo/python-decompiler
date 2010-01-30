@@ -219,11 +219,11 @@ augassign :i ::= <anything>:a ?(a.__class__ == AugAssign) => a.node.rec(i) + a.o
 
 backquote :i ::= <anything>:a ?(a.__class__ == Backquote) => ''
 
-bitand :i ::= <anything>:a ?(a.__class__ == Bitand) => ''
+bitand :i ::= <anything>:a ?(a.__class__ == Bitand) => '('+'&'.join(['('+n.rec(i)+')' for n in a.nodes])+')'
 
-bitor :i ::= <anything>:a ?(a.__class__ == Bitor) => ''
+bitor :i ::= <anything>:a ?(a.__class__ == Bitor) => '('+'|'.join(['('+n.rec(i)+')' for n in a.nodes])+')'
 
-bitxor :i ::= <anything>:a ?(a.__class__ == Bitxor) => ''
+bitxor :i ::= <anything>:a ?(a.__class__ == Bitxor) => '('+'^'.join(['('+n.rec(i)+')' for n in a.nodes])+')'
 
 # Matches an escape from a loop
 break :i ::= <anything>:a ?(a.__class__ == Break) => 'break'
@@ -295,7 +295,7 @@ exec :i ::= <anything>:a ?(a.__class__ == Exec) ?(a.globals is None) ?(a.locals 
 
 expression :i ::= <anything>:a ?(a.__class__ == Expression) => ''
 
-floordiv :i ::= <anything>:a ?(a.__class__ == FloorDiv) => ''
+floordiv :i ::= <anything>:a ?(a.__class__ == FloorDiv) => '(' + a.left.rec(i) + ' // ' + a.right.rec(i) + ')'
 
 # Matches for loops
 for :i ::= <anything>:a ?(a.__class__ == For) ?(a.else_ is None) => 'for '+a.assign.rec(i)+' in '+a.list.rec(i)+\""":\n\"""+a.body.rec(i+1)
@@ -364,14 +364,14 @@ ifexp :i ::= <anything>:a ?(a.__class__ == IfExp) => ''
 # Matches the access of external modules
 import :i ::= <anything>:a ?(a.__class__ == Import) => 'import '+', '.join(import_match(a.names))
 
-invert :i ::= <anything>:a ?(a.__class__ == Invert) => ''
+invert :i ::= <anything>:a ?(a.__class__ == Invert) => '(~('+a.expr.rec(i)+'))'
 
 # Matches a key/value pair in an argument list
 keyword :i ::= <anything>:a ?(a.__class__ == Keyword) => a.name+'='+a.expr.rec(i)
 
 lambda :i ::= <anything>:a ?(a.__class__ == Lambda) => ''
 
-leftshift :i ::= <anything>:a ?(a.__class__ == LeftShift) => ''
+leftshift :i ::= <anything>:a ?(a.__class__ == LeftShift) => '(('+a.left.rec(i)+')<<('+a.right.rec(i)+'))'
 
 # Matches a mutable, ordered collection 
 list :i ::= <anything>:a ?(a.__class__ == List) => '['+', '.join([n.rec(i) for n in a.nodes])+']'
@@ -428,7 +428,7 @@ raise :i ::= <anything>:a ?(a.__class__ == Raise) => 'raise '+', '.join([t[0] fo
 # Matches the passing of return values from functions, etc.
 return :i ::= <anything>:a ?(a.__class__ == Return) => 'return '+a.value.rec(i)
 
-rightshift :i ::= <anything>:a ?(a.__class__ == RightShift) => ''
+rightshift :i ::= <anything>:a ?(a.__class__ == RightShift) => '(('+a.left.rec(i)+')>>(+a.right.rec(i)+'))'
 
 # Matches a subset of an ordered sequence
 # We want the upper and lower boundaries if present, subscripting the
