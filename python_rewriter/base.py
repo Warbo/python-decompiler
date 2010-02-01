@@ -523,7 +523,8 @@ while :i ::= <anything>:a ?(a.__class__ == While) ?(a.else_ is None) => 'while '
 # Matches object-style try/catch
 with :i ::= <anything>:a ?(a.__class__ == With) => 'with '+a.expr.rec(i)+' as '+a.vars.rec(i)+\""":\n\"""+('\t'*(i+1))+a.body.rec(i+1)
 
-yield :i ::= <anything>:a ?(a.__class__ == Yield) => ''
+# Matches generator values
+yield :i ::= <anything>:a ?(a.__class__ == Yield) => 'yield '+a.value.rec(i)
 
 """
 
