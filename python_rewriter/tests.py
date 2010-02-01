@@ -64,7 +64,7 @@ assert x < 5, "x is not less than five"
 """, ['Compare', 'Constant']), \
 	Test('Assign', 'x = y = 10', ['Name', 'Constant', 'Statement']), \
 	Test('Augmenting Assign', 'x += 10', ['Statement', 'Name', 'Constant']), \
-	Test('Backquote', '', ['Statement']), \
+	Test('Backquote', '`something`+`some_function(some_arg)`', ['Statement', 'Add']), \
 	Test('Bitwise And', 'a&b&(c&d)', ['Statement']), \
 	Test('Bitwise Or', 'a|b|(c|d)', ['Statement']), \
 	Test('Bitwise Exclusive Or', 'a^b^(c^d)', ['Statement']), \

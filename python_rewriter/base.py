@@ -217,12 +217,16 @@ assign :i ::= <anything>:a ?(a.__class__ == Assign) => ' = '.join([n.rec(i) for 
 # Matches an in-place change to something
 augassign :i ::= <anything>:a ?(a.__class__ == AugAssign) => a.node.rec(i) + a.op + a.expr.rec(i)
 
-backquote :i ::= <anything>:a ?(a.__class__ == Backquote) => ''
+# Matches deprecated object representations
+backquote :i ::= <anything>:a ?(a.__class__ == Backquote) => '`'+a.expr.rec(i)+'`'
 
+# Matches bitwise AND
 bitand :i ::= <anything>:a ?(a.__class__ == Bitand) => '('+'&'.join(['('+n.rec(i)+')' for n in a.nodes])+')'
 
+# Matches bitwise OR
 bitor :i ::= <anything>:a ?(a.__class__ == Bitor) => '('+'|'.join(['('+n.rec(i)+')' for n in a.nodes])+')'
 
+# Matches bitwise XOR
 bitxor :i ::= <anything>:a ?(a.__class__ == Bitxor) => '('+'^'.join(['('+n.rec(i)+')' for n in a.nodes])+')'
 
 # Matches an escape from a loop
