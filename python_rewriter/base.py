@@ -93,6 +93,40 @@ def pick_quotes(string):
 	# If we're still here then something's not right, so just choose one
 	return '"""'+string.replace('"""', '\\"""')+'"""'
 
+def set_defaults(argnames, defaults):
+	"""Given a list argnames and a list defaults, this will return a
+	string of the relevant argnames set to the defaults. In other words,
+	argnames of [a, b, c, d] and defaults of [5, x] will give a string
+	"a, b, c=5, d=x", suitable for defining a function with."""
+	# For no arguments this is trivial
+	if len(argnames) == 0:
+		return ''
+	# For no defaults we don't need to assign anything
+	if len(defaults) == 0:
+		return ','.join(argnames)
+	# If every argument has a default then we can just iterate through
+	if len(argnames) == len(defaults):
+		to_return = []
+		for x in range(0, len(argnames)):
+			to_return.append(str(argnames[x])+'='+str(defaults[x]))
+		return ','.join(to_return)
+	# If we've reached here then we have arguments and defaults of
+	# differing number
+	
+	# First split apart those args with defaults from those without
+	# (defaults ONLY occur at the end of the argument list)
+	with_defs = argnames[-1*(len(defaults)):]
+	without_defs = argnames[:-1*(len(defaults))]
+	
+	# Now create the contents of our eventual return string
+	# Start with the arguments without defaults, since they're easy
+	to_return = without_defs
+	# Now add those with defaults, along with their defaults
+	for x in range(0, len(defaults)):
+		to_return.append(with_defs[x]+'='+defaults[x])
+	# And we're done
+	return ','.join(to_return)
+
 # This is the grammar, defined in OMeta, which does our translation
 grammar_def = """
 
@@ -299,8 +333,12 @@ exec :i ::= <anything>:a ?(a.__class__ == Exec) ?(a.globals is None) ?(a.locals 
           | <anything>:a ?(a.__class__ == Exec) ?(a.globals is None) ?(not a.locals is None) => 'exec('+a.expr.rec(i)+', '+a.locals.rec(i)+')'
           | <anything>:a ?(a.__class__ == Exec) ?(not a.globals is None) ?(not a.locals is None) => 'exec('+a.expr.rec(i)+', '+a.globals.rec(i)+', '+a.locals.rec(i)+')'
 
-expression :i ::= <anything>:a ?(a.__class__ == Expression) => ''
+# Don't know what this does :( Current plan: Keep testing code until we
+# come across something that uses it, then study that code to see what
+# it is
+expression :i ::= <anything>:a ?(a.__class__ == Expression) => 'FAIL'
 
+# Matches integer division
 floordiv :i ::= <anything>:a ?(a.__class__ == FloorDiv) => '(' + a.left.rec(i) + ' // ' + a.right.rec(i) + ')'
 
 # Matches for loops
@@ -375,8 +413,11 @@ invert :i ::= <anything>:a ?(a.__class__ == Invert) => '(~('+a.expr.rec(i)+'))'
 # Matches a key/value pair in an argument list
 keyword :i ::= <anything>:a ?(a.__class__ == Keyword) => a.name+'='+a.expr.rec(i)
 
-lambda :i ::= <anything>:a ?(a.__class__ == Lambda) => ''
+# Matches anonymous functions
+# FIXME: What do the flags represent?
+lambda :i ::= <anything>:a ?(a.__class__ == Lambda) => 'lambda '+set_defaults(a.argnames, [n.rec(i) for n in a.defaults])+': '+a.code.rec(i)
 
+# Matches leftwards bit shifts
 leftshift :i ::= <anything>:a ?(a.__class__ == LeftShift) => '(('+a.left.rec(i)+')<<('+a.right.rec(i)+'))'
 
 # Matches a mutable, ordered collection 

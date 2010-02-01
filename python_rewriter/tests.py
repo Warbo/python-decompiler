@@ -196,8 +196,9 @@ print 'x'""", ['Statement', 'Print New Line']), \
 f('c','d', a=False)""", ['Statement', 'Print New Line']), \
 	Test('Lambda', """f = lambda x, y, a=2: x+y+a*a
 lambda: 5*2
-lambda x: x*x
-filter(lambda x: x>5, range(10))""", ['Statement']), \
+lambda x, y: x*y
+filter(lambda x: x>5, range(10))
+lambda x, y, z=func(15, a=Person()): z/x**y""", ['Statement', 'Call Function']), \
 	Test('Left Shift', 'x<<(y<<z)', ['Statement']), \
 	Test('List', """[1,2,3,[1,2,"s"]]
 x = []""", ['Statement']), \
