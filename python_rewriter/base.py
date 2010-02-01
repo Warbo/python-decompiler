@@ -288,8 +288,10 @@ discard :i ::= <anything>:a ?(a.__class__ == Discard) => a.expr.rec(i)
 # Matches division
 div :i ::= <anything>:a ?(a.__class__ == Div) => '('+a.left.rec(i)+')/('+a.right.rec(i)+')'
 
-ellipsis :i ::= <anything>:a ?(a.__class__ == Ellipsis) => ''
+# Matches Ellipsis singleton (used for slicing N-dimensional objects)
+ellipsis :i ::= <anything>:a ?(a.__class__ == Ellipsis) => '...'
 
+# FIXME: Do we need this?
 emptynode :i ::= <anything>:a ?(a.__class__ == EmptyNode) => ''
 
 # Matches the dynamic execution of a string, file or piece of code

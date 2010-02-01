@@ -132,7 +132,7 @@ y = {a:1, 5:x}
 """, ['Statement', 'Name', 'Constant', 'Assign', 'Assign Name']), \
 	Test('Discard', '5', ['Statement', 'Constant']), \
 	Test('Division', 'x/10', ['Name', 'Constant']), \
-	Test('Ellipsis', '', ['Statement']), \
+	Test('Ellipsis', 'x[...,5]', ['Statement']), \
 	Test('Expression', '', ['Statement']), \
 	Test('Execute', 'exec("x=True")', ['Statement']), \
 	Test('Rounded-Down Division', 'a//b//(c//d)', ['Statement']), \
