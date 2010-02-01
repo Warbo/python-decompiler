@@ -65,9 +65,9 @@ assert x < 5, "x is not less than five"
 	Test('Assign', 'x = y = 10', ['Name', 'Constant', 'Statement']), \
 	Test('Augmenting Assign', 'x += 10', ['Statement', 'Name', 'Constant']), \
 	Test('Backquote', '', ['Statement']), \
-	Test('Bitwise And', '', ['Statement']), \
-	Test('Bitwise Or', '', ['Statement']), \
-	Test('Bitwise Exclusive Or', '', ['Statement']), \
+	Test('Bitwise And', 'a&b&(c&d)', ['Statement']), \
+	Test('Bitwise Or', 'a|b|(c|d)', ['Statement']), \
+	Test('Bitwise Exclusive Or', 'a^b^(c^d)', ['Statement']), \
 	Test('Break', """x=0
 while True:
 	x += 1
@@ -135,7 +135,7 @@ y = {a:1, 5:x}
 	Test('Ellipsis', '', ['Statement']), \
 	Test('Expression', '', ['Statement']), \
 	Test('Execute', 'exec("x=True")', ['Statement']), \
-	Test('Rounded-Down Division', '', ['Statement']), \
+	Test('Rounded-Down Division', 'a//b//(c//d)', ['Statement']), \
 	Test('For Loop', """for x in range(5):
 	print str(x)
 	for a, b in enumerate(range(10)):
@@ -198,7 +198,7 @@ f('c','d', a=False)""", ['Statement', 'Print New Line']), \
 lambda: 5*2
 lambda x: x*x
 filter(lambda x: x>5, range(10))""", ['Statement']), \
-	Test('Left Shift', '', ['Statement']), \
+	Test('Left Shift', 'x<<(y<<z)', ['Statement']), \
 	Test('List', """[1,2,3,[1,2,"s"]]
 x = []""", ['Statement']), \
 	Test('List Comprehension', '[str(x) for x in range(10)]', ['Statement']), \
@@ -243,7 +243,7 @@ def i():
 def j():
 	return 1 / (math.hypot(point_position[0] - position[0], point_position[1] - position[1])**2 + 0.000001)
 """, ['Statement']), \
-	Test('Right Shift', '', ['Statement']), \
+	Test('Right Shift', 'a>>b>>c>>d>>(e>>f)', ['Statement']), \
 	Test('Slice', """x[5:15]
 y[:10]
 z[a:]""", ['Statement']), \
@@ -289,7 +289,10 @@ x=()""", ['Name']), \
 while x < 5:
 	print str(x)
 	x += 1""", ['Statement', 'Print New Line']), \
-	Test('With', '', ['Statement']), \
+	Test('With', """
+with open('a', 'r') as f:
+	read(f)
+""", ['Statement', 'Function Call']), \
 	Test('Yield', 'yield x', ['Statement']) \
 ]
 

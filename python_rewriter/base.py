@@ -428,7 +428,7 @@ raise :i ::= <anything>:a ?(a.__class__ == Raise) => 'raise '+', '.join([t[0] fo
 # Matches the passing of return values from functions, etc.
 return :i ::= <anything>:a ?(a.__class__ == Return) => 'return '+a.value.rec(i)
 
-rightshift :i ::= <anything>:a ?(a.__class__ == RightShift) => '(('+a.left.rec(i)+')>>(+a.right.rec(i)+'))'
+rightshift :i ::= <anything>:a ?(a.__class__ == RightShift) => '(('+a.left.rec(i)+')>>('+a.right.rec(i)+'))'
 
 # Matches a subset of an ordered sequence
 # We want the upper and lower boundaries if present, subscripting the
@@ -473,7 +473,8 @@ unarysub :i ::= <anything>:a ?(a.__class__ == UnarySub) => '-'+a.expr.rec(i)
 while :i ::= <anything>:a ?(a.__class__ == While) ?(a.else_ is None) => 'while '+a.test.rec(i)+\""":\n\"""+a.body.rec(i+1)
            | <anything>:a ?(a.__class__ == While) ?(not a.else_ is None) => 'while '+a.test.rec(i)+\""":\n\"""+a.body.rec(i+1)+\"""\n\"""+(i*'\t')+\"""else:\n\"""+a.else_.rec(i+1)
 
-with :i ::= <anything>:a ?(a.__class__ == With) => ''
+# Matches object-style try/catch
+with :i ::= <anything>:a ?(a.__class__ == With) => 'with '+a.expr.rec(i)+' as '+a.vars.rec(i)+\""":\n\"""+('\t'*(i+1))+a.body.rec(i+1)
 
 yield :i ::= <anything>:a ?(a.__class__ == Yield) => ''
 
