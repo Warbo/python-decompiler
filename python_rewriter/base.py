@@ -278,13 +278,13 @@ callfunc :i ::= <anything>:a ?(a.__class__ == CallFunc) ?(a.star_args is None) ?
 
 # Matches the description of an object type
 class :i ::= <anything>:a ?(a.__class__ == Class) ?(v[1] < 6 or a.decorators is None) ?(len(a.bases) == 0) ?(a.doc is None) => 'class '+a.name+\""":\n\"""+a.code.rec(i+1)
-           | <anything>:a ?(a.__class__ == Class) ?(v[1] < 6 or a.decorators is None) ?(len(a.bases) == 0) ?(not a.doc is None) => 'class '+a.name+\""":\n\"""+('\t'*i)+pick_quotes(a.doc)+a.code.rec(i+1)
+           | <anything>:a ?(a.__class__ == Class) ?(v[1] < 6 or a.decorators is None) ?(len(a.bases) == 0) ?(not a.doc is None) => 'class '+a.name+\""":\n\"""+('\t'*(i+1))+pick_quotes(a.doc)+a.code.rec(i+1)
            | <anything>:a ?(a.__class__ == Class) ?(v[1] < 6 or a.decorators is None) ?(len(a.bases) > 0) ?(a.doc is None) => 'class '+a.name+'('+(', '.join([n.rec(i) for n in a.bases]))+\"""):\n\"""+a.code.rec(i+1)
-           | <anything>:a ?(a.__class__ == Class) ?(v[1] < 6 or a.decorators is None) ?(len(a.bases) > 0) ?(not a.doc is None) => 'class '+a.name+'('+(', '.join([n.rec(i) for n in a.bases]))+\"""):\n\"""+pick_quotes(a.doc)+a.code.rec(i+1)
+           | <anything>:a ?(a.__class__ == Class) ?(v[1] < 6 or a.decorators is None) ?(len(a.bases) > 0) ?(not a.doc is None) => 'class '+a.name+'('+(', '.join([n.rec(i) for n in a.bases]))+\"""):\n\"""+('\t'*(i+1))+pick_quotes(a.doc)+a.code.rec(i+1)
            | <anything>:a ?(a.__class__ == Class) ?(v[1] > 6 and not a.decorators is None) ?(len(a.bases) == 0) ?(a.doc is None) => a.decorators.rec(i)+\"""\n\"""+(i*'\t')+'class '+a.name+\""":\n\"""+a.code.rec(i+1)
-           | <anything>:a ?(a.__class__ == Class) ?(v[1] > 6 and not a.decorators is None) ?(len(a.bases) == 0) ?(not a.doc is None) => a.decorators.rec(i)+\"""\n\"""+(i*'\t')+'class '+a.name+'\""":\n\"""+(i*'\t')+pick_quotes(a.doc)+\"""\"""+a.code.rec(i+1)
+           | <anything>:a ?(a.__class__ == Class) ?(v[1] > 6 and not a.decorators is None) ?(len(a.bases) == 0) ?(not a.doc is None) => a.decorators.rec(i)+\"""\n\"""+(i*'\t')+'class '+a.name+'\""":\n\"""+((i+1)*'\t')+pick_quotes(a.doc)+\"""\"""+a.code.rec(i+1)
            | <anything>:a ?(a.__class__ == Class) ?(v[1] > 6 and not a.decorators is None) ?(len(a.bases) > 0) ?(a.doc is None) => a.decorators.rec(i)+\"""\n\"""+(i*'\t')+'class '+a.name('+(', '.join([n.rec(i) for n in a.bases]))+\"""):\"""+a.code.rec(i+1)
-           | <anything>:a ?(a.__class__ == Class) ?(v[1] > 6 and not a.decorators is None) ?(len(a.bases) > 0) ?(not a.doc is None) => a.decorators.rec(i)+\"""\n\"""+(i*'\t')+'class '+a.name+'('+(', '.join([n.rec(i) for n in a.bases]))+\""":\n\"""+(i*'\t')+pick_quotes(a.doc)+a.code.rec(i+1)           
+           | <anything>:a ?(a.__class__ == Class) ?(v[1] > 6 and not a.decorators is None) ?(len(a.bases) > 0) ?(not a.doc is None) => a.decorators.rec(i)+\"""\n\"""+(i*'\t')+'class '+a.name+'('+(', '.join([n.rec(i) for n in a.bases]))+\""":\n\"""+((i+1)*'\t')+pick_quotes(a.doc)+a.code.rec(i+1)           
 
 # Compare groups together comparisons (==, <, >, etc.)
 # We want the left-hand expression followed by each operation joined with its right-hand-side
@@ -292,10 +292,12 @@ compare :i ::= <anything>:a ?(a.__class__ == Compare) => a.expr.rec(i) + ' ' + '
 
 # Const wraps a constant value
 # We want strings in quotes and numbers as strings
-const :i ::= <anything>:a ?(a.__class__ == Const) ?(type(a.value) == unicode) => 'u'+pick_quotes(a.value)
-           | <anything>:a ?(a.__class__ == Const) ?(type(a.value) == str) => pick_quotes(a.value)
-           | <anything>:a ?(a.__class__ == Const) ?(a.value is None) => ''
-           | <anything>:a ?(a.__class__ == Const) ?(not type(a.value) == str) => str(a.value)
+const :i ::= <anything>:a ?(a.__class__ == Const) ?(a.value is None) => ''
+           | <anything>:a ?(a.__class__ == Const) => repr(a.value)
+# <anything>:a ?(a.__class__ == Const) ?(type(a.value) == unicode) => 'u'+pick_quotes(a.value)
+#           | <anything>:a ?(a.__class__ == Const) ?(type(a.value) == str) => pick_quotes(a.value)
+#           | <anything>:a ?(a.__class__ == Const) ?(a.value is None) => ''
+#           | <anything>:a ?(a.__class__ == Const) ?(not type(a.value) == str) => repr(a.value)
 
 # Continue
 continue :i ::= <anything>:a ?(a.__class__ == Continue) => 'continue'

@@ -88,7 +88,13 @@ j(*a, **b)
 class B(A):
 
 	def __init__(self):
-		pass""", ['Statement', 'Pass', 'Function']), \
+		pass
+
+class B():
+	''' A docstring
+	'''
+	x = y
+""", ['Statement', 'Pass', 'Function']), \
 	Test('Compare', 'x < y and 1 == 5 and 2 > 8', ['Name', 'Constant', 'And']), \
 	Test('Constant', """1
 -5
@@ -198,7 +204,8 @@ f('c','d', a=False)""", ['Statement', 'Print New Line']), \
 lambda: 5*2
 lambda x, y: x*y
 filter(lambda x: x>5, range(10))
-lambda x, y, z=func(15, a=Person()): z/x**y""", ['Statement', 'Call Function']), \
+lambda x, y, z=func(15, a=Person()): z/x**y
+lambda:'n/a'""", ['Statement', 'Call Function']), \
 	Test('Left Shift', 'x<<(y<<z)', ['Statement']), \
 	Test('List', """[1,2,3,[1,2,"s"]]
 x = []""", ['Statement']), \
@@ -342,25 +349,78 @@ if __name__ == '__main__':
 				except Exception, e:
 					print str(e)
 					print "Error parsing "+line.strip()
+					try:
+						del(tree)
+					except:
+						pass
+					try:
+						testfile.close()
+					except:
+						pass
 					continue
+
 				try:
 					code = tree.rec(0)
 				except Exception, e:
 					print str(e)
 					print "Error pretty printing "+line.strip()
+					if "-d" in sys.argv:
+						print str(tree)
+						sys.exit(1)
+					try:
+						del(code)
+					except:
+						pass
+					try:
+						del(tree)
+					except:
+						pass
 					continue
-				
+
 				try:
 					new_tree = base.parse(code)
 					del(code)
 				except Exception, e:
 					print str(e)
 					print "Error parsing generated code for "+line.strip()
+					if "-d" in sys.argv:
+						print str(tree)
+						print
+						print code
+						sys.exit(1)
+					try:
+						del(new_tree)
+					except:
+						pass
+					try:
+						del(code)
+					except:
+						pass
+					try:
+						del(tree)
+					except:
+						pass
 					continue
 	
 				try:
-					if new_tree != tree:
+					if repr(new_tree) != repr(tree):
 						print "Error, trees don't match for "+line.strip()
+						if "-d" in sys.argv:
+							failed = False
+							for x in range(max(len(repr(tree)), len(repr(new_tree)))):
+								if repr(tree)[x] == repr(new_tree)[x]:
+									sys.stdout.write(repr(tree)[x])
+								else:
+									failed = True
+									break
+							if failed:
+								print
+								print 'DIFFER HERE'
+								print
+								print repr(tree)[x:]
+								print
+								print repr(new_tree)[x:]
+							sys.exit(1)
 					else:
 						sys.stdout.write('.')
 						sys.stdout.flush()
@@ -369,6 +429,34 @@ if __name__ == '__main__':
 				except Exception, e:
 					print str(e)
 					print "Error comparing trees for "+line.strip()
+					if "-d" in sys.argv:
+						failed = False
+						for x in range(max(len(repr(tree)), len(repr(new_tree)))):
+							if repr(tree)[x] == repr(new_tree)[x]:
+								sys.stdout.write(repr(tree)[x])
+							else:
+								failed = True
+								break
+						if failed:
+							print
+							print 'DIFFER HERE'
+							print
+							print repr(tree)[x:]
+							print
+							print repr(new_tree)[x:]
+						sys.exit(1)
+					try:
+						del(tree)
+					except:
+						pass
+					try:
+						del(new_tree)
+					except:
+						pass
+					try:
+						del(code)
+					except:
+						pass
 					continue
 		
 		else:
@@ -398,7 +486,7 @@ if __name__ == '__main__':
 					continue
 
 				try:
-					if tree == new_tree:
+					if repr(tree) == repr(new_tree):
 						sys.stdout.write('.')
 						sys.stdout.flush()
 					else:
