@@ -1,8 +1,14 @@
 import sys
 import base
+from subprocess import call
 from base import grammar as g
 import compiler
 from pymeta.runtime import ParseError
+#try:
+#	import psyco
+#	psyco.full()
+#except:
+#	pass
 
 class EscapeException(Exception):
 	pass
@@ -304,31 +310,46 @@ with open('a', 'r') as f:
 	Test('Yield', 'yield x', ['Statement']) \
 ]
 
+# Run the following if we've been run specifically (rather than imported)
 if __name__ == '__main__':
+	# If we've not been given any arguments then perform the above tests
 	if len(sys.argv) == 1:
+		# Run the tests
 		for test in tests:
 			test.run(g)
 
+		# These will store our results
 		failed = []
 		succeeded = []
 		unknown = []
 
+		# Go through each test
 		for test in tests:
+			# Assign it to the relevant list based on its result
 			if not test.result:
 				failed.append(test)
 			else:
 				succeeded.append(test)
 
+		# Now go through (a copy of) each failed test
 		for test in failed[:]:
+			# See if any features it relies on also failed
 			for dep in test.deps:
 				for test2 in failed[:]:
 					if test2.name == dep:
+						# If so then move it to the "unknown" list
 						try:
 							failed.remove(test)
 							unknown.append(test)
 						except ValueError:
 							pass
 
+		# Now our "succeeded" list will contain every successful feature
+		# The "failed" list will contain those features which don't work
+		# The "unknown" list will have those with no information (ie.
+		# their tests require dependencies to work before running) 
+
+		# Output the results
 		for s in succeeded:
 			print s.message
 
@@ -338,162 +359,172 @@ if __name__ == '__main__':
 		for f in failed:
 			print f.message
 
+	# If we've got arguments then run the following instead
 	else:
+		# A "-f" argument means "test the files named in this file"
 		if "-f" in sys.argv:
+			
+			# Make some defaults
+			keepnot = False
+			keepwork = False
+			
+			# Ssee if we've been given files to write to
+			# "-w" should be followed by a file to append successes to
+			if '-w' in sys.argv:
+				workfile = sys.argv[sys.argv.index('-w')+1]
+			# "-n" should be followed by a file to append failures to
+			if '-n' in sys.argv:
+				notfile = sys.argv[sys.argv.index('-n')+1]
+			
+			# Generate the filenames we're to test
 			infile = open(sys.argv[sys.argv.index('-f')+1], 'r')
-			for line in infile.readlines():
-				testfile = open(line.strip(), 'r')
-				try:
-					tree = base.parse(''.join(testfile.readlines()))
-					testfile.close()
-				except Exception, e:
-					print str(e)
-					print "Error parsing "+line.strip()
-					try:
-						del(tree)
-					except:
-						pass
-					try:
-						testfile.close()
-					except:
-						pass
-					continue
-
-				try:
-					code = tree.rec(0)
-				except Exception, e:
-					print str(e)
-					print "Error pretty printing "+line.strip()
-					if "-d" in sys.argv:
-						print str(tree)
-						sys.exit(1)
-					try:
-						del(code)
-					except:
-						pass
-					try:
-						del(tree)
-					except:
-						pass
-					continue
-
-				try:
-					new_tree = base.parse(code)
-					del(code)
-				except Exception, e:
-					print str(e)
-					print "Error parsing generated code for "+line.strip()
-					if "-d" in sys.argv:
-						print str(tree)
-						print
-						print code
-						sys.exit(1)
-					try:
-						del(new_tree)
-					except:
-						pass
-					try:
-						del(code)
-					except:
-						pass
-					try:
-						del(tree)
-					except:
-						pass
-					continue
-	
-				try:
-					if repr(new_tree) != repr(tree):
-						print "Error, trees don't match for "+line.strip()
-						if "-d" in sys.argv:
-							failed = False
-							for x in range(max(len(repr(tree)), len(repr(new_tree)))):
-								if repr(tree)[x] == repr(new_tree)[x]:
-									sys.stdout.write(repr(tree)[x])
-								else:
-									failed = True
-									break
-							if failed:
-								print
-								print 'DIFFER HERE'
-								print
-								print repr(tree)[x:]
-								print
-								print repr(new_tree)[x:]
-							sys.exit(1)
-					else:
-						sys.stdout.write('.')
-						sys.stdout.flush()
-					del(tree)
-					del(new_tree)
-				except Exception, e:
-					print str(e)
-					print "Error comparing trees for "+line.strip()
-					if "-d" in sys.argv:
-						failed = False
-						for x in range(max(len(repr(tree)), len(repr(new_tree)))):
-							if repr(tree)[x] == repr(new_tree)[x]:
-								sys.stdout.write(repr(tree)[x])
-							else:
-								failed = True
-								break
-						if failed:
-							print
-							print 'DIFFER HERE'
-							print
-							print repr(tree)[x:]
-							print
-							print repr(new_tree)[x:]
-						sys.exit(1)
-					try:
-						del(tree)
-					except:
-						pass
-					try:
-						del(new_tree)
-					except:
-						pass
-					try:
-						del(code)
-					except:
-						pass
-					continue
+			lines = [line.strip() for line in infile.readlines()]
+			
+			# Test each file by calling this module for each (using
+			# seperate processes avoids stressing the garbage collector.
+			# We could easily do testing concurrently, but I only have
+			# one processor, so haven't bothered doing it yet).
+			for num, line in enumerate(lines):
+				arguments = ['python', 'tests.py', line]
+				if keepnot:
+					arguments.extend(['-n', notfile])
+				if keepwork:
+					arguments.extend(['-w', workfile])
+				call(arguments)
+				# Give a progress indicator (the number remaining)
+				sys.stderr.write(str(len(lines)-num)+'\n')
+				sys.stderr.flush()
 		
+		# If we have no list of files, we should use the first argument
 		else:
-			for name in sys.argv[1:]:
-				testfile = open(name, 'r')
-				try:
-					tree = base.parse(testfile)
-					testfile.close()
-				except Exception, e:
+			# Define defaults
+			do_print = True
+			keepnot = False
+			keepwork = False
+			
+			# See if we have output files to append to
+			if '-w' in sys.argv and '-n' in sys.argv:
+				# "do_print" indicates that we should output test
+				# information to the console
+				do_print = False
+				# Whether to keep a note of files afterwards
+				keepwork = True
+				keepnot = True
+				workfile = open(sys.argv[sys.argv.index('-w')+1], 'a')
+				notfile = open(sys.argv[sys.argv.index('-n')+1], 'a')
+			
+			# The file to use
+			name = sys.argv[1]
+			testfile = open(name, 'r')
+			
+			# Now test the contents
+			
+			# Attempt to parse the file contents into an AST
+			try:
+				tree = base.parse(''.join(testfile.readlines()))
+				testfile.close()
+			except Exception, e:
+				# If we fail then make a note of it as appropriate
+				if keepnot:
+					notfile.write(name+'\n')
+					notfile.flush()
+				# And output more information if asked to
+				if do_print:
+					testfile.seek(0)
+					print ''.join(testfile.readlines())
+					print
 					print str(e)
-					print "Error parsing "+name
-					continue
+					print "Error parsing input."
+				# Now quit (we can't go any further)
+				sys.exit(0)
+			
+			# Attempt to generate code from the AST
+			try:
+				code = tree.rec(0)
+			except Exception, e:
+				# If we fail then make a note of it as appropriate
+				if keepnot:
+					notfile.write(name+'\n')
+					notfile.flush()
+				# And output more information if asked to
+				if do_print:
+					print repr(tree)
+					print
+					print str(e)
+					print "Error generating code"
+				# Now quit (we can't go any further)
+				sys.exit(0)
+			
+			# Attempt to parse the generated code into an AST
+			try:
+				new_tree = base.parse(code)
+				# Get rid of the code now that we don't need it
+				del(code)
+			except Exception, e:
+				# If we fail then make a note of it if asked to
+				if keepnot:
+					notfile.write(name+'\n')
+					notfile.flush()
+				# And output more information if asked to
+				if do_print:
+					print code
+					print
+					print str(e)
+					print "Error parsing generated code"
+				# Now quit (we can't go any further)
+				sys.exit(0)
 
-				try:
-					code = tree.rec(0)
-				except Exception, e:
-					print str(e)
-					print "Error generating code for "+name
-					continue
+			# Attempt to equate the two trees
+			try:
+				# repr(tree1) should equal repr(tree2)
+				if repr(tree) == repr(new_tree):
+					# If so then we have succeeded, note is as required
+					if keepwork:
+						workfile.write(name+'\n')
+						workfile.flush()
+					if do_print:
+						print "Match"
+				# Otherwise...
+				else:
+					# If they're not equal then make a note as required
+					if keepnot:
+						notfile.write(name+'\n')
+						notfile.flush()
+					# And output is we've been asked to
+					if do_print:
+						tree1 = repr(tree)
+						tree2 = repr(new_tree)
+						for index in range(max(len(tree1), len(tree2))):
+							if tree1[index] == tree2[index]:
+								sys.stdout.write(tree1[index])
+							else:
+								print "FAIL HERE"
+								print
+								print tree1[index:]
+								print
+								print tree2[index:]
+								break
+				# Now quit				
+				sys.exit(0)
 				
-				try:
-					new_tree = base.parse(code)
-					del(code)
-				except Exception, e:
-					print str(e)
-					print "Error parsing generated code for "+name
-					continue
-
-				try:
-					if repr(tree) == repr(new_tree):
-						sys.stdout.write('.')
-						sys.stdout.flush()
-					else:
-						print "Error, trees don't match for "+name
-					del(tree)
-					del(new_tree)
-				except Exception, e:
-					print str(e)
-					print "Error comparing trees for "+name
-					continue
+			except Exception, e:
+				# If there's an error then note it as appropriate
+				if keepnot:
+					notfile.write(name+'\n')
+					notfile.flush()
+				# And output more information if asked to
+				if do_print:
+					tree1 = repr(tree)
+					tree2 = repr(new_tree)
+					for index in range(max(len(tree1), len(tree2))):
+						if tree1[index] == tree2[index]:
+							sys.stdout.write(tree1[index])
+						else:
+							print "FAIL HERE"
+							print
+							print tree1[index:]
+							print
+							print tree2[index:]
+							break
+				# Now quit
+				sys.exit(0)

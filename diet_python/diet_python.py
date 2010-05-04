@@ -149,18 +149,18 @@ assign ::= <anything>:a ?(a.__class__ == Assign) => Assign(apply(a.nodes), apply
 # a += b becomes a = a.__add__(b), etc.
 augassign ::= <anything>:a ?(a.__class__ == AugAssign) => apply(parse(a.node.rec(0)+'='+a.node.rec(0)+a.op[0]+a.expr.rec(0)))
 
-# Recurse through backquotes
-backquote ::= <anything>:a ?(a.__class__ == Backquote) => Backquote(apply(a.expr))
+# `something` becomes repr(something)
+backquote ::= <anything>:a ?(a.__class__ == Backquote) => apply(CallFunc(Name('repr'), [a.expr], None, None))
 
-# Recurse through bitwise AND
+# a & b becomes a.__and__(b)
 bitand ::= <anything>:a ?(a.__class__ == Bitand and len(a.nodes) > 2) => apply(CallFunc(Getattr(Bitand(a.nodes[:-1]), '__and__'), [a.nodes[-1]], None, None))
          | <anything>:a ?(a.__class__ == Bitand) => apply(CallFunc(Getattr(a.nodes[0], '__and__'), [a.nodes[1]], None, None))
 
-# Recurse through bitwise OR
+# a | b becomes a.__or__(b)
 bitor ::= <anything>:a ?(a.__class__ == Bitor and len(a.nodes) > 2) => apply(CallFunc(Getattr(Bitor(a.nodes[:-1]), '__or__'), [a.nodes[-1]], None, None))
         | <anything>:a ?(a.__class__ == Bitor) => apply(CallFunc(Getattr(a.nodes[0], '__or__'), [a.nodes[1]], None, None))
 
-# Recurse through bitwise XOR
+# a ^ b becomes a.__xor__(b)
 bitxor ::= <anything>:a ?(a.__class__ == Bitxor and len(a.nodes) > 2) => apply(CallFunc(Getattr(Bitxor(a.nodes[:-1]), '__xor__'), [a.nodes[-1]], None, None))
          | <anything>:a ?(a.__class__ == Bitxor) => apply(CallFunc(Getattr(a.nodes[0], '__xor__'), [a.nodes[1]], None, None))
 
@@ -294,10 +294,36 @@ pass ::= <anything>:a ?(a.__class__ == Pass) => Pass()
 power ::= <anything>:a ?(a.__class__ == Power) => Power((apply(a.left), apply(a.right)))
 
 # Recurse through output
+# TODO: At a future point, when we implement namespaces and things, we
+# should try to replace this with a function call "print()", however at
+# the moment that would break our compatibility with regular Python.
+# Firstly the 'functiony' syntax above can only call the equivalent of
+# "print 'xyz'" whilst we need it to follow the "print 'xyz',"
+# behaviour (ie. don't put a new line unless we've put one in the
+# argument). We can call "print('xyz')," but then we would need to
+# handle the comma on top of our generic function handling code, which
+# doesn't make anything simpler so there's no point. Thus we need our
+# own definition for print() which doesn't add the newline. This is
+# difficult since "print('xyz')" is not treated by Python as a function
+# call (even though we'd like to implement it with one), but instead as
+# "print 'xyz'", so there's no existing function we can just override.
+# As a consequence, "print" can be (and is) treated as a keyword in
+# Python, so even if we did define a "print()" function, the name would
+# not be allowed. Once namespace support is added then we can give the
+# function a unique, non-conflicting, non-keyword name, so that we can
+# replace these print calls with, for example "print_('xyz')" (and
+# if this conflicts with something in the code then simply add numbers
+# to the end until it doesn't), but then this causes issues since this
+# might be overridden in local namespaces. Whilst an interesting feature
+# this would still be an extension to Python, which breaks Diet Python's
+# purpose, so we'd need to make sure it can never be overridden from
+# within the code we are translating.
+# Since implementing this depends upon the way we do namespaces I'll
+# leave it at that for now.
 print ::= <anything>:a ?(a.__class__ == Print) => Print(apply(a.nodes), apply(a.dest))
 
-# Recurse through output
-printnl ::= <anything>:a ?(a.__class__ == Printnl) => Printnl(apply(a.nodes), apply(a.dest))
+# print xyz becomes print xyz+newline,
+printnl ::= <anything>:a ?(a.__class__ == Printnl) => apply(Print(a.nodes+[Const(\"""\n\""")], a.dest))
 
 # Recurse through errors
 raise ::= <anything>:a ?(a.__class__ == Raise) => Raise(apply(a.expr1), apply(a.expr2), apply(a.expr3))

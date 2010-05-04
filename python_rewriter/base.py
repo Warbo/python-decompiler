@@ -322,7 +322,7 @@ dict :i ::= <anything>:a ?(a.__class__ == Dict) => '{'+(', '.join([o[0].rec(i)+'
 discard :i ::= <anything>:a ?(a.__class__ == Discard) => a.expr.rec(i)
 
 # Matches division
-div :i ::= <anything>:a ?(a.__class__ == Div) => '('+a.left.rec(i)+')/('+a.right.rec(i)+')'
+div :i ::= <anything>:a ?(a.__class__ == Div) => '(('+a.left.rec(i)+')/('+a.right.rec(i)+'))'
 
 # Matches Ellipsis singleton (used for slicing N-dimensional objects)
 ellipsis :i ::= <anything>:a ?(a.__class__ == Ellipsis) => '...'
@@ -523,7 +523,8 @@ while :i ::= <anything>:a ?(a.__class__ == While) ?(a.else_ is None) => 'while '
            | <anything>:a ?(a.__class__ == While) ?(not a.else_ is None) => 'while '+a.test.rec(i)+\""":\n\"""+a.body.rec(i+1)+\"""\n\"""+(i*'\t')+\"""else:\n\"""+a.else_.rec(i+1)
 
 # Matches object-style try/catch
-with :i ::= <anything>:a ?(a.__class__ == With) => 'with '+a.expr.rec(i)+' as '+a.vars.rec(i)+\""":\n\"""+('\t'*(i+1))+a.body.rec(i+1)
+with :i ::= <anything>:a ?(a.__class__ == With) ?(a.vars is not None) => 'with '+a.expr.rec(i)+' as '+a.vars.rec(i)+\""":\n\"""+('\t'*(i+1))+a.body.rec(i+1)
+          | <anything>:a ?(a.__class__ == With) => 'with '+a.expr.rec(i)+\""":\n\"""+('\t'*(i+1))+a.body.rec(i+1)
 
 # Matches generator values
 yield :i ::= <anything>:a ?(a.__class__ == Yield) => 'yield '+a.value.rec(i)
