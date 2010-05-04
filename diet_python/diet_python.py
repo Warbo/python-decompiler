@@ -177,7 +177,7 @@ class ::= <anything>:a ?(a.__class__ == Class) => Class(apply(a.name), apply(a.b
 compare ::= <anything>:a ?(a.__class__ == Compare) => Compare(apply(a.expr), apply(a.ops))
 
 # Recurse through constants
-const ::= <anything>:a ?(a.__class__ == Const) => Const(apply(a.value))
+const ::= <anything>:a ?(a.__class__ == Const) => Const(a.value)
 
 # Recurse through continues
 continue ::= <anything>:a ?(a.__class__ == Continue) => Continue()
@@ -291,7 +291,7 @@ or ::= <anything>:a ?(a.__class__ == Or) => Or(apply(a.nodes))
 pass ::= <anything>:a ?(a.__class__ == Pass) => Pass()
 
 # Recurse through exponentiation
-power ::= <anything>:a ?(a.__class__ == Power) => Power((apply(a.left), apply(a.right)))
+power ::= <anything>:a ?(a.__class__ == Power) => apply(CallFunc(Getattr(a.left, '__pow__'), [a.right], None, None))
 
 # Recurse through output
 # TODO: At a future point, when we implement namespaces and things, we
@@ -386,7 +386,7 @@ def trans(self):
 	the input. It then applies the "thing" rule. Finally it returns
 	the result."""
 	# Uncomment to see exactly which bits are causing errors
-	print str(self)
+	#print str(self)
 	
 	self.transformer = self.transforms([self])
 	
@@ -426,10 +426,10 @@ def translate(path_or_text, initial_indent=0):
 		# Generate (Diet) Python code to match the transformed tree
 		diet_code = diet_tree.rec(initial_indent)
 		
-		print str(tree)
-		print
-		print str(diet_tree)
-		print
+		#print str(tree)
+		#print
+		#print str(diet_tree)
+		#print
 		
 		print diet_code
 		
