@@ -42,34 +42,23 @@ def apply(arg):
 
 def comparison_to_and(node):
 	"""Turns a series of comparisons into a list of independent comparisons, all
-	linked together via ands."""
-	n = node
-	left = n.expr
-	right = n.ops[0][1]
-	op = {'==':'__eq__', '!=':'__ne__', '>':'__gt__', '<':'__lt__', \
-		'>=':'__ge__', '<=':'__le__'}[n.ops[0][0]]
-	calls = [CallFunc(Getattr(left, Name(op)), right, None, None)]
-	n.ops.pop(0)
-	while len(n.ops) > 0:
-		left = right
-		right = n.ops[0][1]
+	linked together via ands. For example:
+	a < b < c == d >= e < f
+	becomes:
+	a.__lt__(b) and b.__lt__(c) and c.__eq__(d) and d.__ge__(e) and e.__lt__(f)
+	TODO: Ensure that this doesn't change semantics!"""
+	left = node.expr
+	calls = []
+	while len(node.ops) > 0:
+		right = node.ops[0][1]
 		op = {'==':'__eq__', '!=':'__ne__', '>':'__gt__', '<':'__lt__', \
-			'>=':'__ge__', '<=':'__le__'}[n.ops[0][0]]
+			'>=':'__ge__', '<=':'__le__'}[node.ops[0][0]]
 		calls.append(CallFunc(Getattr(left, Name(op)), right, None, None))
-		n.ops.pop(0)
+		node.ops.pop(0)
+		left = right
 	if len(calls) == 1:
 		return calls[0]
-	else:
-		return And(calls)
-		
-	if len(node.ops) == 1:
-		return CallFunc(Getattr(left, 
-		a is '==') => '__eq__'
-             | <anything>:a ?(a is '!=') => '__ne__'
-             | <anything>:a ?(a is '>') => '__gt__'
-             | <anything>:a ?(a is '>=') => '__ge__'
-             | <anything>:a ?(a is '<') => '__lt__'
-             | <anything>:a ?(a is '<=') =>  '__le__'
+	return And(calls)
 
 # Diet Python is implemented by transforming the Abstract Syntax
 # Tree. Here we define the tree transformations we wish to make, using
@@ -173,6 +162,8 @@ asslist ::= <anything>:a ?(a.__class__ == AssList) => AssList(apply(a.nodes))
 assname ::= <anything>:a ?(a.__class__ == AssName) => AssName(apply(a.name), apply(a.flags))
 
 # Recurse through tuple assignment
+# Could replace with a loop, but would need to ensure it behaves like an atomic
+# tuple assignment
 asstuple ::= <anything>:a ?(a.__class__ == AssTuple) => AssTuple(apply(a.nodes))
 
 # Recurse through assertions
