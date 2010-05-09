@@ -106,7 +106,7 @@ bother implementing them if we don't need to, as long as we have objects and
 functions :)
 """
 
-import compiler.ast
+from python_rewriter.nodes import *
 
 def replace_elifs(node):
 	"""Takes an AST and replaces the 'elif' conditions in any If nodes,

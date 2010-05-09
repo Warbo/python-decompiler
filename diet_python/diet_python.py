@@ -40,6 +40,37 @@ def apply(arg):
 	else:
 		raise Exception("Couldn't transform "+str(arg))
 
+def comparison_to_and(node):
+	"""Turns a series of comparisons into a list of independent comparisons, all
+	linked together via ands."""
+	n = node
+	left = n.expr
+	right = n.ops[0][1]
+	op = {'==':'__eq__', '!=':'__ne__', '>':'__gt__', '<':'__lt__', \
+		'>=':'__ge__', '<=':'__le__'}[n.ops[0][0]]
+	calls = [CallFunc(Getattr(left, Name(op)), right, None, None)]
+	n.ops.pop(0)
+	while len(n.ops) > 0:
+		left = right
+		right = n.ops[0][1]
+		op = {'==':'__eq__', '!=':'__ne__', '>':'__gt__', '<':'__lt__', \
+			'>=':'__ge__', '<=':'__le__'}[n.ops[0][0]]
+		calls.append(CallFunc(Getattr(left, Name(op)), right, None, None))
+		n.ops.pop(0)
+	if len(calls) == 1:
+		return calls[0]
+	else:
+		return And(calls)
+		
+	if len(node.ops) == 1:
+		return CallFunc(Getattr(left, 
+		a is '==') => '__eq__'
+             | <anything>:a ?(a is '!=') => '__ne__'
+             | <anything>:a ?(a is '>') => '__gt__'
+             | <anything>:a ?(a is '>=') => '__ge__'
+             | <anything>:a ?(a is '<') => '__lt__'
+             | <anything>:a ?(a is '<=') =>  '__le__'
+
 # Diet Python is implemented by transforming the Abstract Syntax
 # Tree. Here we define the tree transformations we wish to make, using
 # PyMeta.
@@ -124,8 +155,7 @@ thing ::= <add>
 # a + b becomes a.__add__(b)
 add ::= <anything>:a ?(a.__class__ == Add) => apply(CallFunc(Getattr(a.left, '__add__'), [a.right], None, None))
 
-# a and b becomes a.__and__(b)
-# a and b and c and d becomes a.__and__(b.__and__(c.__and__(d)))
+# Recurse through "and" keywords
 and ::= <anything>:a ?(a.__class__ == And) => And(apply(a.nodes))
 
 # Recurse through attribute assignment
@@ -135,12 +165,19 @@ assattr ::= <anything>:a ?(a.__class__ == AssAttr) => AssAttr(apply(a.expr), app
 asslist ::= <anything>:a ?(a.__class__ == AssList) => AssList(apply(a.nodes))
 
 # Recurse through name assignment
+# Could turn into a function if we had reified, mutable namespace. For example:
+# foo = bar
+# Could be turned into:
+# locals().__setitem__(foo, bar)
+# Except that modifying the locals() dictionary gives undefined behaviour
 assname ::= <anything>:a ?(a.__class__ == AssName) => AssName(apply(a.name), apply(a.flags))
 
 # Recurse through tuple assignment
 asstuple ::= <anything>:a ?(a.__class__ == AssTuple) => AssTuple(apply(a.nodes))
 
 # Recurse through assertions
+# Node type seems extraneous, but assert() can still be implemented as a
+# function so no real need to change it
 assert ::= <anything>:a ?(a.__class__ == Assert) => Assert(apply(a.test), apply(a.fail))
 
 # Recurse through assignments
@@ -165,93 +202,123 @@ bitxor ::= <anything>:a ?(a.__class__ == Bitxor and len(a.nodes) > 2) => apply(C
          | <anything>:a ?(a.__class__ == Bitxor) => apply(CallFunc(Getattr(a.nodes[0], '__xor__'), [a.nodes[1]], None, None))
 
 # Recurse through breaks
+# Could replace this by converting programs to Continuation Passing Style
 break ::= <anything>:a ?(a.__class__ == Break) => Break()
 
 # Recurse through function calls
+# Function calls are pretty much required. We could replace with __call__, but
+# that would make an infinite regression to __call__.__call__.__call__..........
 callfunc ::= <anything>:a ?(a.__class__ == CallFunc) => CallFunc(apply(a.node), apply(a.args), apply(a.star_args), apply(a.dstar_args))
 
 # Recurse through class definitions
+# Could replace with a call to a __new__ method
 class ::= <anything>:a ?(a.__class__ == Class) => Class(apply(a.name), apply(a.bases), apply(a.doc), apply(a.code), apply(a.decorators))
 
 # Recurse through comparisons
-compare ::= <anything>:a ?(a.__class__ == Compare) => Compare(apply(a.expr), apply(a.ops))
+compare ::= <anything>:a ?(a.__class__ == Compare) => apply(comparison_to_and(a))
 
 # Recurse through constants
+# We could call the namespace here, and use its getter method to construct the
+# number objects as needed.
 const ::= <anything>:a ?(a.__class__ == Const) => Const(a.value)
 
 # Recurse through continues
+# Could be removed if we implemented Continuation Passing Style
 continue ::= <anything>:a ?(a.__class__ == Continue) => Continue()
 
 # Recurse through decorators
+# Simple to eliminate. Do it soon!
 decorators ::= <anything>:a ?(a.__class__ == Decorators) => Decorators(apply(a.nodes))
 
 # Recurse through dictionaries
+# Could use a __new__ method.
 dict ::= <anything>:a ?(a.__class__ == Dict) => Dict(apply(a.items))
 
 # Recurse through operations which are not saved
+# Doesn't show up in the final code, so no need to simplify
 discard ::= <anything>:a ?(a.__class__ == Discard) => Discard(apply(a.expr))
 
 # a / b becomes a.__div__(b)
 div ::= <anything>:a ?(a.__class__ == Div) => apply(CallFunc(Getattr(a.left, '__div__'), [a.right], None, None))
 
 # Recurse through ellipses
+# Global namespace call
 ellipsis ::= <anything>:a ?(a.__class__ == Ellipsis) => Ellipsis()
 
 # Recurse through empty nodes
 emptynode ::= <anything>:a ?(a.__class__ == EmptyNode) => EmptyNode()
 
 # Recurse through code interpretation
+# Just a function call syntax
 exec ::= <anything>:a ?(a.__class__ == Exec) => Exec(apply(a.expr), apply(a.locals), apply(a.globals))
 
 # Recurse through expressions
+# Once again, function call syntax so no need to change
 expression ::= <anything>:a ?(a.__class__ == Expression) => Expression(apply(a.node))
 
 # a // b becomes a.__floordiv__(b)
 floordiv ::= <anything>:a ?(a.__class__ == FloorDiv) => apply(CallFunc(Getattr(a.left, '__floordiv__'), [a.right], None, None))
 
 # Recurse through for loops
+# Could maybe do something with map, or __iter__?
 for ::= <anything>:a ?(a.__class__ == For) => For(apply(a.assign), apply(a.list), apply(a.body), apply(a.else_))
 
 # Recurse through namespace injections
+# Would be nice to give the local namespace a method to do this, but alas it
+# would break CPython semantics
 from ::= <anything>:a ?(a.__class__ == From) => From(apply(a.modname), apply(a.names), apply(a.level))
 
 # Recurse through function definition
+# Could use a __new__, but would need to add meta info like code, arguments, etc.
 function ::= <anything>:a ?(a.__class__ == Function) => Function(apply(a.decorators), apply(a.name), apply(a.argnames), apply(a.defaults), apply(a.flags), apply(a.doc), apply(a.code))
 
 # Recurse through generative expressions
+# Should be some way to __new__ this
 genexpr ::= <anything>:a ?(a.__class__ == GenExpr) => GenExpr(apply(a.code))
 
 # Recurse through generative for loops
+# Ditto
 genexprfor ::= <anything>:a ?(a.__class__ == GenExprFor) => GenExprFor(apply(a.assign), apply(a.iter), apply(a.ifs))
 
 # Recurse through conditional generation
+# Ditto
 genexprif ::= <anything>:a ?(a.__class__ == GenExprIf) => GenExprIf(apply(a.test))
 
 # Recurse through generative expressions
+# Ditto
 genexprinner ::= <anything>:a ?(a.__class__ == GenExprInner) => GenExprInner(apply(a.expr), apply(a.quals))
 
 # Recurse through attribute lookups
+# Oops, infinite recursion!
+#getattr ::= <anything>:a ?(a.__class__ == Getattr) => Callfunc(Getattr(a.expr, Name('__getattribute__')), a.attrname)
+# Could maybe use objects' namespaces?
 getattr ::= <anything>:a ?(a.__class__ == Getattr) => Getattr(apply(a.expr), apply(a.attrname))
 
 # Recurse through global definitions
+# Could use globals()
 global ::= <anything>:a ?(a.__class__ == Global) => Global(apply(a.names))
 
 # Recurse through conditional code
+# Not possible to change without altering Python's True and False object APIs
 if ::= <anything>:a ?(a.__class__ == If) => If(apply(a.tests), apply(a.else_))
 
 # Recurse through conditional code
 ifexp ::= <anything>:a ?(a.__class__ == IfExp) => IfExp(apply(a.test), apply(a.then), apply(a.else_))
 
 # Recurse through namespace gathering
+# Would be nice to change, since it's a keyword, but would require a namespace
+# method
 import ::= <anything>:a ?(a.__class__ == Import) => Import(apply(a.names))
 
 # Recurse through value inversion
 invert ::= <anything>:a ?(a.__class__ == Invert) => Invert(apply(a.expr))
 
 # Recurse through keywords
+# Could perhaps use dictionaries as **varargs
 keyword ::= <anything>:a ?(a.__class__ == Keyword) => Keyword(apply(a.name), apply(a.expr))
 
 # Recurse through anonymous functions
+# Could use __new__ but would require adding meta-info once again
 lambda ::= <anything>:a ?(a.__class__ == Lambda) => Lambda(apply(a.argnames), apply(a.defaults), apply(a.flags), apply(a.code))
 
 # Recurse through left bit shifts
@@ -273,12 +340,14 @@ listcompif ::= <anything>:a ?(a.__class__ == ListCompIf) => ListCompIf(apply(a.t
 mod ::= <anything>:a ?(a.__class__ == Mod) => apply(CallFunc(Getattr(a.left, '__mod__'), [a.right], None, None))
 
 # Recurse through Python modules
+# No actual code, no no need to change
 module ::= <anything>:a ?(a.__class__ == Module) => Module(apply(a.doc), apply(a.node))
 
 # a * b becomes a.__mul__(b)
 mul ::= <anything>:a ?(a.__class__ == Mul) => apply(CallFunc(Getattr(a.left, '__mul__'), [a.right], None, None))
 
 # Recurse through names
+# Maybe make it a namespace lookup message
 name ::= <anything>:a ?(a.__class__ == Name) => Name(apply(a.name))
 
 # Recurse through negation
@@ -288,9 +357,10 @@ not ::= <anything>:a ?(a.__class__ == Not) => Not(apply(a.expr))
 or ::= <anything>:a ?(a.__class__ == Or) => Or(apply(a.nodes))
 
 # Recurse through placeholders
+# Hopefully not needed with continuation passing style
 pass ::= <anything>:a ?(a.__class__ == Pass) => Pass()
 
-# Recurse through exponentiation
+# a**b becomes a.__pow__(b)
 power ::= <anything>:a ?(a.__class__ == Power) => apply(CallFunc(Getattr(a.left, '__pow__'), [a.right], None, None))
 
 # Recurse through output
@@ -326,9 +396,11 @@ print ::= <anything>:a ?(a.__class__ == Print) => Print(apply(a.nodes), apply(a.
 printnl ::= <anything>:a ?(a.__class__ == Printnl) => apply(Print(a.nodes+[Const(\"""\n\""")], a.dest))
 
 # Recurse through errors
+# Uses a function-style syntax anyway
 raise ::= <anything>:a ?(a.__class__ == Raise) => Raise(apply(a.expr1), apply(a.expr2), apply(a.expr3))
 
 # Recurse through GOTOs
+# Can be done away with in continuation passing style
 return ::= <anything>:a ?(a.__class__ == Return) => Return(apply(a.value))
 
 # Recurse through right bit shifts
@@ -346,16 +418,20 @@ stmt ::= <anything>:a ?(a.__class__ == Stmt) => Stmt(apply(a.nodes))
 # a - b becomes a.__sub__(b)
 sub ::= <anything>:a ?(a.__class__ == Sub) => apply(CallFunc(Getattr(a.left, '__sub__'), [a.right], None, None))
 
-# Recurse through indexing
-subscript ::= <anything>:a ?(a.__class__ == Subscript) => Subscript(apply(a.expr), apply(a.flags), apply(a.subs))
+# a[b] becomes a.__getitem__(b)
+# TODO: Check a.flags for deletion (__delitem__) and things
+subscript ::= <anything>:a ?(a.__class__ == Subscript) => apply(CallFunc(Getattr(a.expr, Name('__getitem__')), a.subs))
 
 # Recurse through fallbacks
+# Continuation Passing Style should be able to overcome this
 tryexcept ::= <anything>:a ?(a.__class__ == TryExcept) => TryExcept(apply(a.body), apply(a.handlers), apply(a.else_))
 
 # Recurse through cleanups
+# Ditto
 tryfinally ::= <anything>:a ?(a.__class__ == TryFinally) => TryFinally(apply(a.body), apply(a.final))
 
 # Recurse through immutable lists
+# A __new__ might be in order
 tuple ::= <anything>:a ?(a.__class__ == Tuple) => Tuple(apply(a.nodes))
 
 # Recurse through +ve
@@ -396,7 +472,7 @@ def trans(self):
 	
 Node.trans = trans
 
-def translate(path_or_text, initial_indent=0):
+def translate(path_or_text, if_=False, initial_indent=0):
 	"""This performs the translation from Python to Diet Python. It
 	takes in Python code (assuming the string to be a file path, falling
 	back to treating it as Python code if it is not a valid path) and
@@ -418,8 +494,12 @@ def translate(path_or_text, initial_indent=0):
 		tree = parse(in_text)
 		
 		# Transform the Python AST into a Diet Python AST
-		diet_tree = tree.trans()
-		
+		if if_:
+			print 'IFF'
+			if_tree = replace_ifs(tree)
+			diet_tree = if_tree.trans()
+		else:
+			diet_tree = tree.trans()
 		#print str(tree)
 		#print str(diet_tree)
 		
@@ -441,7 +521,12 @@ def translate(path_or_text, initial_indent=0):
 if __name__ == '__main__':
 	# TODO: Allow passing the initial indentation
 	# TODO: Allow specifying an output file
-	if len(sys.argv) == 2:
-		translate(sys.argv[1])
+	if len(sys.argv) > 1:
+		if '-if' in sys.argv:
+			print "IF"
+			from if_brancher import replace_ifs, replace_elifs, unwrap_if
+			translate(sys.argv[1], if_=True)
+		else:
+			translate(sys.argv[1])
 	else:
 		print "Usage: diet_python.py input_path_or_raw_python_code"
