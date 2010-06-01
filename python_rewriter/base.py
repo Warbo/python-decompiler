@@ -12,6 +12,11 @@ import compiler
 import compiler.ast as ast
 from pymeta.grammar import OMeta as OM
 from nodes import *
+try:
+	import psyco
+	psyco.full()
+except:
+	pass
 
 # Can't get my OMeta subclasses to work, and OMeta has no comment syntax
 # so we have to remove comments from the grammar manually using this
@@ -71,27 +76,36 @@ def is_del(thing):
 def pick_quotes(string):
 	"""Picks some appropriate quotes to wrap the given string in."""
 	# First list the possibilities
-	quotes = ["'", '"']
-	quote_lines = ["'''", '"""']
-	# Now step through them looking for one which isn't used in the string
-	if '\n' in string:
-		try_quotes = quote_lines
-	else:
-		try_quotes = quotes+quote_lines
-	for quote_type in try_quotes:
-		if quote_type not in string.replace('\\'+quote_type, ''): 
-			return quote_type+string+quote_type
+	#quotes = ["'", '"']
+	#quote_lines = ["'''", '"""']
+	
+	# If there's a new line then stick to multiline strings, otherwise
+	# allow single and multiline.
+	#if '\n' in string:
+	#	try_quotes = quote_lines
+	#else:
+	#	try_quotes = quotes+quote_lines
+	
+	# Now step through them looking for one which isn't used in the
+	# string
+	#for quote_type in try_quotes:
+	#	if quote_type not in string.replace('\\'+quote_type, ''): 
+	#		return quote_type+string+quote_type
 	# If we haven't returned yet then find possible candidates
-	candidates = []
-	for quote_type in try_quotes:
-		if (not string.startswith(quote_type)) and (not string.endswith(quote_type)):
-			candidates.append(quote_type)
+	#candidates = []
+	#for quote_type in try_quotes:
+	#	if (not string.startswith(quote_type)) and (not string.endswith(quote_type)):
+	#		candidates.append(quote_type)
 	# Then choose the best
-	for quote_type in candidates:
-		if string.count(quote_type) == min(map(string.count, candidates)):
-			return quote_type+string.replace(quote_type, '\\'+quote_type_)+quote_type
+	#for quote_type in candidates:
+	#	if string.count(quote_type) == min(map(string.count, candidates)):
+	#		return quote_type+string.replace(quote_type, '\\'+quote_type_)+quote_type
 	# If we're still here then something's not right, so just choose one
-	return '"""'+string.replace('"""', '\\"""')+'"""'
+	#return '"""'+string.replace('"""', '\\"""')+'"""'
+	
+	# If the following covers all cases then we can remove the overly
+	# complicated stuff above
+	return repr(string)
 
 def set_defaults(argnames, defaults):
 	"""Given a list argnames and a list defaults, this will return a
@@ -292,7 +306,7 @@ compare :i ::= <anything>:a ?(a.__class__ == Compare) => a.expr.rec(i) + ' ' + '
 
 # Const wraps a constant value
 # We want strings in quotes and numbers as strings
-const :i ::= <anything>:a ?(a.__class__ == Const) ?(a.value is None) => ''
+const :i ::= <anything>:a ?(a.__class__ == Const) ?(a.value is None) => ';'
            | <anything>:a ?(a.__class__ == Const) => repr(a.value)
 # <anything>:a ?(a.__class__ == Const) ?(type(a.value) == unicode) => 'u'+pick_quotes(a.value)
 #           | <anything>:a ?(a.__class__ == Const) ?(type(a.value) == str) => pick_quotes(a.value)
