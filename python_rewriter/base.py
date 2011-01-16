@@ -318,9 +318,9 @@ ellipsis :i ::= <anything>:a ?(a.__class__ == Ellipsis) => '...'
 emptynode :i ::= <anything>:a ?(a.__class__ == EmptyNode) => ''
 
 # Matches the dynamic execution of a string, file or piece of code
-exec :i ::= <anything>:a ?(a.__class__ == Exec) ?(a.globals is None) ?(a.locals is None) => 'exec('+a.expr.rec(i)+')'
-          | <anything>:a ?(a.__class__ == Exec) ?(a.globals is None) ?(not a.locals is None) => 'exec('+a.expr.rec(i)+', '+a.locals.rec(i)+')'
-          | <anything>:a ?(a.__class__ == Exec) ?(not a.globals is None) ?(not a.locals is None) => 'exec('+a.expr.rec(i)+', '+a.globals.rec(i)+', '+a.locals.rec(i)+')'
+exec :i ::= <anything>:a ?(a.__class__ == Exec) ?(a.globals is None) ?(a.locals is None) => 'exec ('+a.expr.rec(i)+')'
+          | <anything>:a ?(a.__class__ == Exec) ?(a.globals is None) ?(not a.locals is None) => 'exec ('+a.expr.rec(i)+') in ('+a.locals.rec(i)+')'
+          | <anything>:a ?(a.__class__ == Exec) ?(not a.globals is None) ?(not a.locals is None) => 'exec ('+a.expr.rec(i)+') in ('+a.locals.rec(i)+'), ('+a.globals.rec(i)+')'
 
 # Don't know what this does :( Current plan: Keep testing code until we
 # come across something that uses it, then study that code to see what

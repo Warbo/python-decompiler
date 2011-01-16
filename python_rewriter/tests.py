@@ -155,7 +155,9 @@ y = {a:1, 5:x}
 	Test('Division', 'x/10', ['Name', 'Constant']), \
 	Test('Ellipsis', 'x[...,5]', ['Statement']), \
 	Test('Expression', '', ['Statement']), \
-	Test('Execute', 'exec("x=True")', ['Statement']), \
+	Test('Execute', """exec("x=True")
+exec 'from sympy import *' in global_dict
+exec 'a' in foo,bar""", ['Statement']), \
 	Test('Rounded-Down Division', 'a//b//(c//d)', ['Statement']), \
 	Test('For Loop', """for x in range(5):
 	print str(x)
