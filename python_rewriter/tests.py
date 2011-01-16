@@ -332,7 +332,7 @@ def do_file(testfile, name, do_print=False, notfile=None, workfile=None):
 	
 	# Attempt to parse the file contents into an AST
 	try:
-		tree = base.parse(''.join(testfile.readlines()))
+		tree = base.parse('\n'.join([l.rstrip() for l in testfile.readlines()]))
 		testfile.close()
 	except Exception, e:
 		# If we fail then make a note of it as appropriate
