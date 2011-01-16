@@ -196,6 +196,7 @@ elif x == 2:
 	print "c"
 else:
 	print 'd'""", ['Statement', 'Print New Line']), \
+	Test('IfExp', """a = b if c > d else e""", ['Statement']), \
 	Test('Import', """import os
 import sys as System
 if True:

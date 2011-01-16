@@ -302,7 +302,7 @@ class :i ::= <anything>:a ?(a.__class__ == Class) ?(v[1] < 6 or a.decorators is 
 
 # Compare groups together comparisons (==, <, >, etc.)
 # We want the left-hand expression followed by each operation joined with its right-hand-side
-compare :i ::= <anything>:a ?(a.__class__ == Compare) => a.expr.rec(i) + ' ' + ' '.join([o[0]+' '+o[1].rec(i) for o in a.ops])
+compare :i ::= <anything>:a ?(a.__class__ == Compare) => '(' + a.expr.rec(i) + ' ' + ' '.join([o[0]+' '+o[1].rec(i) for o in a.ops]) + ')'
 
 # Const wraps a constant value
 # We want strings in quotes and numbers as strings
@@ -419,7 +419,7 @@ if :i ::= <anything>:a ?(a.__class__ == If) ?(len(a.tests) == 1) ?(a.else_ is No
         | <anything>:a ?(a.__class__ == If) ?(len(a.tests) > 1) ?(a.else_ is None) => 'if '+a.tests[0][0].rec(i)+\""":\n\"""+a.tests[0][1].rec(i+1)+''.join([\"""\n\"""+('\t'*i)+'elif '+n[0].rec(i)+\""":\n\"""+n[1].rec(i+1) for n in a.tests[1:]])
         | <anything>:a ?(a.__class__ == If) ?(len(a.tests) > 1) ?(not a.else_ is None) => 'if '+a.tests[0][0].rec(i)+\""":\n\"""+a.tests[0][1].rec(i+1)+''.join([\"""\n\"""+('\t'*i)+'elif '+n[0].rec(i)+\""":\n\"""+n[1].rec(i+1) for n in a.tests[1:]])+\"""\n\"""+(i*'\t')+\"""else:\n\"""+a.else_.rec(i+1)
 
-ifexp :i ::= <anything>:a ?(a.__class__ == IfExp) => ''
+ifexp :i ::= <anything>:a ?(a.__class__ == IfExp) => '(' + a.then.rec(i) + ') if (' + a.test.rec(i) + ') else (' + a.else_.rec(i) + ')'
 
 # Matches the access of external modules
 import :i ::= <anything>:a ?(a.__class__ == Import) => 'import '+', '.join(import_match(a.names))
