@@ -29,7 +29,10 @@ def rec(self, i):
 	Finally it returns the result."""
 	self.matcher = self.grammar([self])
 	r = self.matcher.apply('thing', i)
-	return r
+	if type(r) == type('string'):
+		return r
+	else:
+		return r[0]
 
 # Stick it into the superclass namespace
 Node.rec = rec
