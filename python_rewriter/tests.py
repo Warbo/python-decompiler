@@ -127,6 +127,12 @@ def f(x,y):
 @dbus.service.signal(dbus_interface='com.example.Sample', signature='us')
 def s(self, thing1, thing2):
 	print str(thing1)+str(thing2)
+class A:
+	@a
+	@b
+	def c():
+		pass
+A()
 """, ['Statement', 'Print New Line']), \
 	Test('Deletion', """
 del x

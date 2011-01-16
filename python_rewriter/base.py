@@ -317,7 +317,7 @@ const :i ::= <anything>:a ?(a.__class__ == Const) ?(a.value is None) => ''
 continue :i ::= <anything>:a ?(a.__class__ == Continue) => 'continue'
 
 # Matches transformations applied to functions and classes
-decorators :i ::= <anything>:a ?(a.__class__ == Decorators) => '@'+(\"""\n@\""".join([n.rec(i) for n in a.nodes]))
+decorators :i ::= <anything>:a ?(a.__class__ == Decorators) => '@'+((\"""\n\"""+'\t'*i + '@').join([n.rec(i) for n in a.nodes]))
 
 # Matches any nodes which represent deletions
 delete :i ::= <anything>:a ?(a.__class__ == AssTuple) ?(is_del(a)) => 'del('+', '.join([n.rec(i)[4:] for n in a.nodes])+')'
