@@ -236,7 +236,7 @@ node :i ::= <delete i>:d => d
 
 # Add is addition, with a left and a right
 # We want the left and right, joined by a plus sign '+'
-add :i ::= <anything>:a ?(a.__class__ == Add) => '('+a.left.rec(i)+' + '+a.right.rec(i)+')'
+add :i ::= <anything>:a ?(a.__class__ == Add) => '('+str(a.left.rec(i))+' + '+str(a.right.rec(i))+')'
 
 # Matches a chain of logical AND operations on booleans
 and :i ::= <anything>:a ?(a.__class__ == And) => '('+') and ('.join([n.rec(i) for n in a.nodes])+')'
@@ -306,7 +306,7 @@ compare :i ::= <anything>:a ?(a.__class__ == Compare) => a.expr.rec(i) + ' ' + '
 
 # Const wraps a constant value
 # We want strings in quotes and numbers as strings
-const :i ::= <anything>:a ?(a.__class__ == Const) ?(a.value is None) => ';'
+const :i ::= <anything>:a ?(a.__class__ == Const) ?(a.value is None) => ''
            | <anything>:a ?(a.__class__ == Const) => repr(a.value)
 # <anything>:a ?(a.__class__ == Const) ?(type(a.value) == unicode) => 'u'+pick_quotes(a.value)
 #           | <anything>:a ?(a.__class__ == Const) ?(type(a.value) == str) => pick_quotes(a.value)
@@ -505,7 +505,9 @@ sliceobj :i ::= <anything>:a ?(a.__class__ == Sliceobj) => ':'.join([n.rec(i) fo
 
 # Stmt is a statement (code block), containing a list of nodes
 # We want each node to be on a new line with i tabs as indentation
-stmt :i ::= <anything>:a ?(a.__class__ == Stmt) => (\"""\n\"""+'\t'*i)+(\"""\n\"""+'\t'*i).join([n.rec(i) for n in a.nodes])
+# We make a special case if the 'statement' is a constant None, since this ends
+# up putting 
+stmt :i ::= <anything>:a ?(a.__class__ == Stmt) => (\"""\n\"""+'\t'*i)+(\"""\n\"""+'\t'*i).join([n.rec(i)+';'*len([b for b in [0] if len(a.nodes)>e+1 and a.nodes[e+1].__class__ == Discard and a.nodes[e+1].expr.__class__ == Const and a.nodes[e+1].expr.value is None]) for e,n in enumerate(a.nodes)])
 
 # Matches subtraction
 sub :i ::= <anything>:a ?(a.__class__ == Sub) => '(('+a.left.rec(i)+') - ('+a.right.rec(i)+'))'
@@ -568,3 +570,6 @@ def parse(code):
 # Cleanup the namespace a little
 del stripped
 del args
+
+if __name__ == '__main__':
+		print parse('1 + 2').rec(0)
