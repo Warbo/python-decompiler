@@ -529,10 +529,10 @@ tuple :i ::= <anything>:a ?(a.__class__ == Tuple) ?(len(a.nodes) > 1) => '('+', 
            | <anything>:a ?(a.__class__ == Tuple) ?(len(a.nodes) == 0) => '()'
 
 # Matches a positive operator
-unaryadd :i ::= <anything>:a ?(a.__class__ == UnaryAdd) => '+'+a.expr.rec(i)
+unaryadd :i ::= <anything>:a ?(a.__class__ == UnaryAdd) => '(+'+a.expr.rec(i)+')'
 
 # Matches a negative operator
-unarysub :i ::= <anything>:a ?(a.__class__ == UnarySub) => '-'+a.expr.rec(i)
+unarysub :i ::= <anything>:a ?(a.__class__ == UnarySub) => '(-'+a.expr.rec(i)+')'
 
 # Matches a while loop
 while :i ::= <anything>:a ?(a.__class__ == While) ?(a.else_ is None) => 'while '+a.test.rec(i)+\""":\n\"""+a.body.rec(i+1)

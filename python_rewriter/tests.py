@@ -307,7 +307,8 @@ finally:
 	Test('Tuple', """(a, b, (c, d))
 x=()""", ['Name']), \
 	Test('Unary Addition', '+3', ['Statement']), \
-	Test('Unary Subtraction', '-10', ['Statement']), \
+	Test('Unary Subtraction', """-10
+assert (-(1+x)**2).expand()""", ['Statement']), \
 	Test('While Loop', """x = 1
 while x < 5:
 	print str(x)
