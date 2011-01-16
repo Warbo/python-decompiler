@@ -240,6 +240,7 @@ print
 print >> x, 'thing'
 print a, b
 print(x for x in range(5))
+#print "Creating %d trees of depth %d" % (5, 10)
 """, ['Statement']), \
 	Test('Raise', """raise ValueError()
 raise AssertionError('%s: %s' % (a, b)), None, x
@@ -491,7 +492,7 @@ if __name__ == '__main__':
 			keepnot = False
 			keepwork = False
 			
-			# Ssee if we've been given files to write to
+			# See if we've been given files to write to
 			# "-w" should be followed by a file to append successes to
 			if '-w' in sys.argv:
 				workfile = sys.argv[sys.argv.index('-w')+1]
@@ -511,13 +512,13 @@ if __name__ == '__main__':
 			# We could easily do testing concurrently, but I only have
 			# one processor, so haven't bothered doing it yet).
 			for num, line in enumerate(lines):
-				#arguments = ['python', 'tests.py', line]
-				#if keepnot:
-				#	arguments.extend(['-n', notfile])
-				#if keepwork:
-				#	arguments.extend(['-w', workfile])
-				#call(arguments)
-				do_file(open(line, 'r'), line, False, open(notfile, 'a'), open(workfile, 'a'))
+				arguments = ['python', 'tests.py', line]
+				if keepnot:
+					arguments.extend(['-n', notfile])
+				if keepwork:
+					arguments.extend(['-w', workfile])
+				call(arguments)
+				#do_file(open(line, 'r'), line, False, open(notfile, 'a'), open(workfile, 'a'))
 				# Give a progress indicator (the number remaining)
 				sys.stderr.write(str(len(lines)-num)+'\n')
 				sys.stderr.flush()
@@ -528,21 +529,20 @@ if __name__ == '__main__':
 			do_print = True
 			keepnot = False
 			keepwork = False
-			
+			workfile = None
+			notfile = None
 			# See if we have output files to append to
-			if '-w' in sys.argv and '-n' in sys.argv:
-				# "do_print" indicates that we should output test
-				# information to the console
+			# "do_print" indicates that we should output test
+			# information to the console
+			if '-w' in sys.argv:
 				do_print = False
-				# Whether to keep a note of files afterwards
 				keepwork = True
-				keepnot = True
 				workfile = open(sys.argv[sys.argv.index('-w')+1], 'a')
+			if '-n' in sys.argv:
+				do_print = False
+				keepnot = True
 				notfile = open(sys.argv[sys.argv.index('-n')+1], 'a')
-			else:
-				workfile = None
-				notfile = None
-			
+				
 			# The file to use
 			name = sys.argv[1]
 			testfile = open(name, 'r')
