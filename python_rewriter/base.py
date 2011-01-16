@@ -402,7 +402,7 @@ genexpr :i ::= <anything>:a ?(a.__class__ == GenExpr) => '('+a.code.rec(i)+')'
 genexprfor :i ::= <anything>:a ?(a.__class__ == GenExprFor) => 'for '+a.assign.rec(i)+' in '+a.iter.rec(i)+' '.join([n.rec(i) for n in a.ifs])
 
 # Matches any conditions on members in a list-generating expression
-genexprif :i ::= <anything>:a ?(a.__class__ == GenExprIf) => 'if '+a.test.rec(i)
+genexprif :i ::= <anything>:a ?(a.__class__ == GenExprIf) => ' if '+a.test.rec(i)
 
 # Matches the body of a list-generating expression
 genexprinner :i ::= <anything>:a ?(a.__class__ == GenExprInner) => a.expr.rec(i)+' '+' '.join([n.rec(i) for n in a.quals])

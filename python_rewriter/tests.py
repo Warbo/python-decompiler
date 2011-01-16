@@ -187,7 +187,11 @@ def l(a):
 """, ['Statement', 'Print New Line']), \
 	Test('GenExpr', 'print(x for x in range(5))', ['Statement', 'Print New Line']), \
 	Test('GenExprFor', 'print(x for x in range(5))', ['Statement', 'Print New Line']), \
-	Test('GenExprIf', 'print(x for x in range(5) if x < 2)', ['Statement', 'Print New Line']), \
+	Test('GenExprIf', """print(x for x in range(5) if x < 2)
+newWidth = max(
+	obj.width()
+	for obj in objects
+	if obj is not stringPict.LINE)""", ['Statement', 'Print New Line']), \
 	Test('GenExprInner', 'print(x for x in range(5))', ['Statement', 'Print New Line']), \
 	Test('Get Attribute', 'x.name', ['Statement']), \
 	Test('Global', """global x
