@@ -75,36 +75,6 @@ def is_del(thing):
 
 def pick_quotes(string):
 	"""Picks some appropriate quotes to wrap the given string in."""
-	# First list the possibilities
-	#quotes = ["'", '"']
-	#quote_lines = ["'''", '"""']
-	
-	# If there's a new line then stick to multiline strings, otherwise
-	# allow single and multiline.
-	#if '\n' in string:
-	#	try_quotes = quote_lines
-	#else:
-	#	try_quotes = quotes+quote_lines
-	
-	# Now step through them looking for one which isn't used in the
-	# string
-	#for quote_type in try_quotes:
-	#	if quote_type not in string.replace('\\'+quote_type, ''): 
-	#		return quote_type+string+quote_type
-	# If we haven't returned yet then find possible candidates
-	#candidates = []
-	#for quote_type in try_quotes:
-	#	if (not string.startswith(quote_type)) and (not string.endswith(quote_type)):
-	#		candidates.append(quote_type)
-	# Then choose the best
-	#for quote_type in candidates:
-	#	if string.count(quote_type) == min(map(string.count, candidates)):
-	#		return quote_type+string.replace(quote_type, '\\'+quote_type_)+quote_type
-	# If we're still here then something's not right, so just choose one
-	#return '"""'+string.replace('"""', '\\"""')+'"""'
-	
-	# If the following covers all cases then we can remove the overly
-	# complicated stuff above
 	return repr(string)
 
 def set_defaults(argnames, defaults):
@@ -307,6 +277,9 @@ compare :i ::= <anything>:a ?(a.__class__ == Compare) => '(' + a.expr.rec(i) + '
 # Const wraps a constant value
 # We want strings in quotes and numbers as strings
 const :i ::= <anything>:a ?(a.__class__ == Const) ?(a.value is None) => ''
+           | <anything>:a ?(a.__class__ == Const) ?(a.value == float('inf')) => '1e30000'
+           | <anything>:a ?(a.__class__ == Const) ?(a.value == float('-inf')) => '-1e30000'
+           | <anything>:a ?(a.__class__ == Const) ?(a.value != a.value) => '(float("nan"))'
            | <anything>:a ?(a.__class__ == Const) => repr(a.value)
 # <anything>:a ?(a.__class__ == Const) ?(type(a.value) == unicode) => 'u'+pick_quotes(a.value)
 #           | <anything>:a ?(a.__class__ == Const) ?(type(a.value) == str) => pick_quotes(a.value)

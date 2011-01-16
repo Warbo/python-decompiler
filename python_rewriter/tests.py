@@ -112,6 +112,8 @@ u"Unicode"
 'SINGLE'
 "DOUBLE"
 '''Triple'''
+1.0e300000
+-1.0e300000
 """+'"""SEXTUPLE"""'+"""
 None""", ['Statement']), \
 	Test('Continue', """for x in range(5):
