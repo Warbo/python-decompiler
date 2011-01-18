@@ -201,3 +201,5 @@ def replace_ifs(node):
 			# have an asList method. These are leaves anyway, so we don't need
 			# to recurse into them
 			return node
+
+extra_filters = [replace_ifs]

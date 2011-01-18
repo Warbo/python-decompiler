@@ -24,6 +24,8 @@ from python_rewriter.base import grammar_def, strip_comments, parse, constants
 from python_rewriter.nodes import *
 from pymeta.grammar import OMeta
 
+extra_filters = []
+
 def apply(arg):
 	"""Runs transformations on the argument. If the argument has a trans
 	method, that is run; if it is a list, apply is mapped to the list;
@@ -36,29 +38,49 @@ def apply(arg):
 	elif type(arg) == type((0,1)):
 		return tuple(map(apply, arg))
 	elif 'trans' in dir(arg):
-		return arg.trans()
+		transformed = arg.trans()
+		# If we've got any extra transformations to apply then do them now
+		for func in extra_filters:
+			transformed = func(transformed)
+		return transformed
 	else:
 		raise Exception("Couldn't transform "+str(arg))
 
 def comparison_to_and(node):
-	"""Turns a series of comparisons into a list of independent comparisons, all
-	linked together via ands. For example:
+	"""Turns a series of comparisons into a nested series of independent
+	comparisons. The behaviour is similar to logical and, including the
+	restriction that the expression on the right should not be evaluated unless
+	the expression on the left is true. The difficulty is that each expression
+	should only be evaluated once, if at all. Thus if we had a comparison like:
 	a < b < c == d >= e < f
-	becomes:
-	a.__lt__(b) and b.__lt__(c) and c.__eq__(d) and d.__ge__(e) and e.__lt__(f)
-	TODO: Ensure that this doesn't change semantics!"""
+	We cannot rewrite this as a < b and b < c and c == d and d >= e and e < f
+	since in the case that they are all true, the expressions b, c, d and e will
+	all be evaluated twice. Thus we must rely on the comparison methods to
+	handle these correctly, and pass the right-hand expressions as strings to be
+	evaled as needed (otherwise they would be evaluated as they are passed to
+	the function, which would break the restriction that they should only be
+	evaluated when the expressions to their left are true).
+	Thus we extend the comparison method signature with a list of expressions to
+	evaluate in the case that their first one succeeds. This should be
+	implemented recursively, popping the head off the list, evaluating it and
+	storing the result in a temporary variable. We can then do 2 comparisons
+	against the temporary variable, which eliminates the need to evaluate the
+	expressions twice. The tail of the list should be passed to this comparison
+	so that it can recurse until it's empty.
+	a.__lt__(b, [('__lt__','c'),('__eq__','d'),('__ge__','e'),('__lt__','f')])"""
 	left = node.expr
-	calls = []
-	while len(node.ops) > 0:
-		right = node.ops[0][1]
-		op = {'==':'__eq__', '!=':'__ne__', '>':'__gt__', '<':'__lt__', \
-			'>=':'__ge__', '<=':'__le__'}[node.ops[0][0]]
-		calls.append(CallFunc(Getattr(left, Name(op)), right, None, None))
-		node.ops.pop(0)
-		left = right
-	if len(calls) == 1:
-		return calls[0]
-	return And(calls)
+	op = {'==':'__eq__', '!=':'__ne__', '>':'__gt__', '<':'__lt__', \
+		'>=':'__ge__', '<=':'__le__'}[node.ops[0][0]]
+	ops = [(op[a[0]],a[1]) for a in node.ops]
+	if len(ops) == 1:
+		return CallFunc(Getattr(apply(node.expr), Name(ops[0][0])),[apply(ops[0][1])])
+	else:
+		first_op = ops.pop(0)
+		return CallFunc(Getattr(apply(node.expr), Name(first_op[0])), \
+			[apply(first_op[1]),List([ \
+				Tuple([Const(a[0]),Const(apply(a[1]).rec(0))]) for a in ops \
+			])] \
+		)
 
 # Diet Python is implemented by transforming the Abstract Syntax
 # Tree. Here we define the tree transformations we wish to make, using
@@ -463,7 +485,7 @@ def trans(self):
 	
 Node.trans = trans
 
-def translate(path_or_text, if_=False, initial_indent=0):
+def translate(path_or_text, initial_indent=0):
 	"""This performs the translation from Python to Diet Python. It
 	takes in Python code (assuming the string to be a file path, falling
 	back to treating it as Python code if it is not a valid path) and
@@ -485,12 +507,7 @@ def translate(path_or_text, if_=False, initial_indent=0):
 		tree = parse(in_text)
 		
 		# Transform the Python AST into a Diet Python AST
-		if if_:
-			print 'IFF'
-			if_tree = replace_ifs(tree)
-			diet_tree = if_tree.trans()
-		else:
-			diet_tree = tree.trans()
+		diet_tree = apply(tree)
 		#print str(tree)
 		#print str(diet_tree)
 		
@@ -502,7 +519,7 @@ def translate(path_or_text, if_=False, initial_indent=0):
 		#print str(diet_tree)
 		#print
 		
-		print diet_code
+		return diet_code
 		
 	except Exception, e:
 		sys.stderr.write(str(e)+'\n')
@@ -511,13 +528,39 @@ def translate(path_or_text, if_=False, initial_indent=0):
 
 if __name__ == '__main__':
 	# TODO: Allow passing the initial indentation
-	# TODO: Allow specifying an output file
 	if len(sys.argv) > 1:
-		if '-if' in sys.argv:
-			print "IF"
-			from if_brancher import replace_ifs, replace_elifs, unwrap_if
-			translate(sys.argv[1], if_=True)
+		args = sys.argv
+		if '-in' in args:
+			in_file = args[args.index('-in')+1]
 		else:
-			translate(sys.argv[1])
+			print "Usage: diet_python.py -in input_path [-out output_path] [-extra foo]"
+			sys.exit(1)
+		if '-out' in args:
+			out_file = args[args.index('-out')+1]
+		else:
+			out_file=None
+		# "-extra foo" will include the transformations from foo.py
+		while '-extra' in args:
+			# Grab the filename
+			i = args.index('-extra')
+			n = args[i+1]
+			# Import it
+			try:
+				exec('import '+n)
+				extra_filters.extend(eval(n+'.extra_filters'))
+			except:
+				print 'Failed to import '+n
+				sys.exit(1)
+			# Remove it from the arguments
+			args.pop(i)
+			args.pop(i)
+		# Now run the translation
+		code = translate(in_file)
+		if out_file is None:
+			print code
+		else:
+			o = open(out_file, 'w')
+			o.write(code)
+			o.close()
 	else:
-		print "Usage: diet_python.py input_path_or_raw_python_code"
+		print "Usage: diet_python.py -in input_path [-out output_path] [-extra foo]"

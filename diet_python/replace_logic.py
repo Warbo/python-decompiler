@@ -138,3 +138,5 @@ def replace_logic(node):
 			# If an error occurs it's because strings, numbers, None, etc. don't
 			# have an asList method. Since they're leaves, just return them.
 			return node
+
+extra_filters = [replace_logic]
