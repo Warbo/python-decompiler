@@ -164,7 +164,7 @@ thing ::= <add>
         | <yield>
 
 # a + b becomes a.__add__(b)
-add ::= <anything>:a ?(a.__class__ == Add) => apply(CallFunc(Getattr(a.left, '__add__'), [a.right], None, None))
+add ::= <anything>:a ?(a.__class__ == Add) => apply(CallFunc(Getattr(a.left, Name('__add__')), [a.right], None, None))
 
 # Recurse through "and" keywords
 and ::= <anything>:a ?(a.__class__ == And) => And(apply(a.nodes))
@@ -228,7 +228,7 @@ callfunc ::= <anything>:a ?(a.__class__ == CallFunc) => CallFunc(apply(a.node), 
 class ::= <anything>:a ?(a.__class__ == Class) => Class(apply(a.name), apply(a.bases), apply(a.doc), apply(a.code), apply(a.decorators))
 
 # Recurse through comparisons
-compare ::= <anything>:a ?(a.__class__ == Compare) => apply(comparison_to_and(a))
+compare ::= <anything>:a ?(a.__class__ == Compare) => Compare(apply(a.expr), map(apply,a.ops)) #apply(comparison_to_and(a))
 
 # Recurse through constants
 # We could call the namespace here, and use its getter method to construct the
@@ -480,7 +480,9 @@ def trans(self):
 	self.transformer = self.transforms([self])
 	
 	r = self.transformer.apply('thing')
-	
+
+	if type(r) == type((0,1,2)):
+		return r[0]
 	return r
 	
 Node.trans = trans
@@ -547,6 +549,10 @@ if __name__ == '__main__':
 			# Import it
 			try:
 				exec('import '+n)
+				# Fill its namespace with our node classes
+				for obj in dir():
+					if obj[0].isupper():
+						exec(n+'.'+obj+' = '+obj)
 				extra_filters.extend(eval(n+'.extra_filters'))
 			except:
 				print 'Failed to import '+n

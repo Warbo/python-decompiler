@@ -173,7 +173,7 @@ def unwrap_if(tests, else_):
 def replace_ifs(node):
 	"""Given an AST node, replaces if statements with calls to __if__."""
 	# Get rid of elif statements
-	tree = replace_elifs(node)
+	#tree = replace_elifs(node)
 	# We want to transform If nodes
 	if tree.__class__ == If:
 		# Call the __if__ method of the condition instead (and recurse through

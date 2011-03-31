@@ -32,7 +32,7 @@ def replace_ors(node):
 		# call of __logor__ on the boolean of the first node
 		if len(node.nodes) == 2:
 			return CallFunc(Getattr(CallFunc(Name('bool'),[node.nodes[0]]), \
-				Name('__logor__')), [Const(apply(node.nodes[-1]]).rec(0))])
+				Name('__logor__')), [Const(apply(node.nodes[-1]).rec(0))])
 		# Otherwise we build a nested series of ors (ie. "a or b or c or d"
 		# becomes "a or (b or (c or d))") which we do recursively, and then we
 		# apply ourselves to it recursively to complete the translation

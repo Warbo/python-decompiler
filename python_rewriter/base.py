@@ -381,7 +381,7 @@ genexprif :i ::= <anything>:a ?(a.__class__ == GenExprIf) => ' if '+a.test.rec(i
 genexprinner :i ::= <anything>:a ?(a.__class__ == GenExprInner) => a.expr.rec(i)+' '+' '.join([n.rec(i) for n in a.quals])
 
 # Matches the retrieval of an object's attribute
-getattr :i ::= <anything>:a ?(a.__class__ == Getattr) => a.expr.rec(i)+'.'+a.attrname
+getattr :i ::= <anything>:a ?(a.__class__ == Getattr) => a.expr.rec(i)+'.'+''.join([b for b in [a.attrname] if type(b) == type('string')])+''.join([b.rec(i) for b in [a.attrname] if type(b) != type('string')])
 
 # Matches the injection of a variable from a parent namespace
 global :i ::= <anything>:a ?(a.__class__ == Global) => 'global '+', '.join(a.names)

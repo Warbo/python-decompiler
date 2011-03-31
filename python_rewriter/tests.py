@@ -58,14 +58,14 @@ if __name__ != '__main__' or len(sys.argv) == 1:
 		Test('Assign Attribute', 'x.name = "ex"', ['Statement', 'Name']), \
 		Test('Assign List', '[a,b,c] = x', ['Statement', 'Name', 'Assign']), \
 		Test('Assign Name', """x = 10
-	""", ['Name', 'Constant', 'Assign']), \
+""", ['Name', 'Constant', 'Assign']), \
 		Test('Assign Tuple', """
-	x, y, z = 1, 2, "10"
-	""", ['Tuple', 'Name', 'Constant', 'Assign']), \
+x, y, z = 1, 2, "10"
+""", ['Tuple', 'Name', 'Constant', 'Assign']), \
 		Test('Assert', """
-	assert 10 < 9
-	assert x < 5, "x is not less than five"
-	""", ['Compare', 'Constant']), \
+assert 10 < 9
+assert x < 5, "x is not less than five"
+""", ['Compare', 'Constant']), \
 		Test('Assign', 'x = y = 10', ['Name', 'Constant', 'Statement']), \
 		Test('Augmenting Assign', 'x += 10', ['Statement', 'Name', 'Constant']), \
 		Test('Backquote', '`something`+`some_function(some_arg)`', ['Statement', 'Add']), \
@@ -73,162 +73,162 @@ if __name__ != '__main__' or len(sys.argv) == 1:
 		Test('Bitwise Or', 'a|b|(c|d)', ['Statement']), \
 		Test('Bitwise Exclusive Or', 'a^b^(c^d)', ['Statement']), \
 		Test('Break', """x=0
-	while True:
-		x += 1
-		if x == 5:
-			break
-	""", ['Statement']), \
+while True:
+	x += 1
+	if x == 5:
+		break
+""", ['Statement']), \
 		Test('Function Call', """str(x)
-	f(*[1,2,3])
-	g(*x*2)
-	h(**x)
-	i(a, b=5, *c, **d)
-	j(*a, **b)
-	""", ['Statement', 'Name']), \
+f(*[1,2,3])
+g(*x*2)
+h(**x)
+i(a, b=5, *c, **d)
+j(*a, **b)
+""", ['Statement', 'Name']), \
 		Test('Class', """class A(object):
-		def __init__(self):
-			pass
+	def __init__(self):
+		pass
 	
-	class B(A):
+class B(A):
 	
-		def __init__(self):
-			pass
+	def __init__(self):
+		pass
 	
-	class B():
-		''' A docstring
-		'''
-		x = y
-	""", ['Statement', 'Pass', 'Function']), \
+class B():
+	''' A docstring
+	'''
+	x = y
+""", ['Statement', 'Pass', 'Function']), \
 		Test('Compare', 'x < y and 1 == 5 and 2 > 8', ['Name', 'Constant', 'And']), \
 		Test('Constant', """1
-	-5
-	3.4
-	-12.45
-	-8.048e-16
-	10+5j
-	u"Unicode"
-	'SINGLE'
-	"DOUBLE"
-	'''Triple'''
-	1.0e300000
-	-1.0e300000
-	"""+'"""SEXTUPLE"""'+"""
-	None""", ['Statement']), \
+-5
+3.4
+-12.45
+-8.048e-16
+10+5j
+u"Unicode"
+'SINGLE'
+"DOUBLE"
+'''Triple'''
+1.0e300000
+-1.0e300000
+"""+'"""SEXTUPLE"""'+"""
+None""", ['Statement']), \
 		Test('Continue', """for x in range(5):
-		if x == 2:
-			continue
-		print str(x)""", ['Statement', 'Name', 'Function Call', 'Compare', 'Constant', 'Print New Line']), \
+	if x == 2:
+		continue
+	print str(x)""", ['Statement', 'Name', 'Function Call', 'Compare', 'Constant', 'Print New Line']), \
 		Test('Decorators', """
-	def a(g):
-		return g
+def a(g):
+	return g
+@a
+def f(x,y):
+	print x+y
+@dbus.service.signal(dbus_interface='com.example.Sample', signature='us')
+def s(self, thing1, thing2):
+	print str(thing1)+str(thing2)
+class A:
 	@a
-	def f(x,y):
-		print x+y
-	@dbus.service.signal(dbus_interface='com.example.Sample', signature='us')
-	def s(self, thing1, thing2):
-		print str(thing1)+str(thing2)
-	class A:
-		@a
-		@b
-		def c():
-			pass
-	A()
-	""", ['Statement', 'Print New Line']), \
+	@b
+	def c():
+		pass
+A()
+""", ['Statement', 'Print New Line']), \
 		Test('Deletion', """
-	del x
-	del(y)
-	del a, b, c
-	del x[a]
-	del x[a:b]
-	del x[a:b:c]
-	del a, b[x], c[x:y], d[x:y:z], e.a
-	del e.a
-	""", ['Statement', 'Name']), \
+del x
+del(y)
+del a, b, c
+del x[a]
+del x[a:b]
+del x[a:b:c]
+del a, b[x], c[x:y], d[x:y:z], e.a
+del e.a
+""", ['Statement', 'Name']), \
 		Test('Dictionary', """x = 5
-	a = "s"
-	y = {a:1, 5:x}
-	{}
-	""", ['Statement', 'Name', 'Constant', 'Assign', 'Assign Name']), \
+a = "s"
+y = {a:1, 5:x}
+{}
+""", ['Statement', 'Name', 'Constant', 'Assign', 'Assign Name']), \
 		Test('Discard', '5', ['Statement', 'Constant']), \
 		Test('Division', 'x/10', ['Name', 'Constant']), \
 		Test('Ellipsis', 'x[...,5]', ['Statement']), \
 		Test('Expression', '', ['Statement']), \
 		Test('Execute', """exec("x=True")
-	exec 'from sympy import *' in global_dict
-	exec 'a' in foo,bar""", ['Statement']), \
+exec 'from sympy import *' in global_dict
+exec 'a' in foo,bar""", ['Statement']), \
 		Test('Rounded-Down Division', 'a//b//(c//d)', ['Statement']), \
 		Test('For Loop', """for x in range(5):
-		print str(x)
-		for a, b in enumerate(range(10)):
-			print str(a*b)
-	for i in attr1:
-		i.go()
-	""", ['Statement', 'Print New Line']), \
+	print str(x)
+	for a, b in enumerate(range(10)):
+		print str(a*b)
+for i in attr1:
+	i.go()
+""", ['Statement', 'Print New Line']), \
 		Test('From', """from os import get_cwd
-	from sys import exit as Exit
-	from pygame import draw, mixer as sound, surface
-	from .. import test
-	from ..subdir import something
-	""", ['Statement']), \
+from sys import exit as Exit
+from pygame import draw, mixer as sound, surface
+from .. import test
+from ..subdir import something
+""", ['Statement']), \
 		Test('Function', """def f(x, y=False, z="TEST", a="ING"):
-		if y:
-			print x
-	def g():
-		print z
-	def h((x, (y, q)), z="a", w="b", v="c"):
-		\"""Function h.\"""
-		print w
-	def i(*a):
-		print str(a)
-	def j(**a):
-		print str(a)
-	def k(*a, **b):
-		print str(a)+str(b)
-	def l(a):
-		return a
-	""", ['Statement', 'Print New Line']), \
+	if y:
+		print x
+def g():
+	print z
+def h((x, (y, q)), z="a", w="b", v="c"):
+	\"""Function h.\"""
+	print w
+def i(*a):
+	print str(a)
+def j(**a):
+	print str(a)
+def k(*a, **b):
+	print str(a)+str(b)
+def l(a):
+	return a
+""", ['Statement', 'Print New Line']), \
 		Test('GenExpr', 'print(x for x in range(5))', ['Statement', 'Print New Line']), \
 		Test('GenExprFor', 'print(x for x in range(5))', ['Statement', 'Print New Line']), \
 		Test('GenExprIf', """print(x for x in range(5) if x < 2)
-	newWidth = max(
-		obj.width()
-		for obj in objects
-		if obj is not stringPict.LINE)""", ['Statement', 'Print New Line']), \
+newWidth = max(
+	obj.width()
+	for obj in objects
+	if obj is not stringPict.LINE)""", ['Statement', 'Print New Line']), \
 		Test('GenExprInner', 'print(x for x in range(5))', ['Statement', 'Print New Line']), \
 		Test('Get Attribute', 'x.name', ['Statement']), \
 		Test('Global', """global x
-	x = 2""", ['Statement']), \
+x = 2""", ['Statement']), \
 		Test('If', """if x < 2:
-		print "a"
-	elif x > 2:
-		print "b"
-	elif x == 2:
-		if y:
-			print x
-		print "c"
-	else:
-		print 'd'""", ['Statement', 'Print New Line']), \
+	print "a"
+elif x > 2:
+	print "b"
+elif x == 2:
+	if y:
+		print x
+	print "c"
+else:
+	print 'd'""", ['Statement', 'Print New Line']), \
 		Test('IfExp', """a = b if c > d else e""", ['Statement']), \
 		Test('Import', """import os
-	import sys as System
-	if True:
-		import StringIO
-		import pygame, compiler
-		import urllib2
-	print 'x'""", ['Statement', 'Print New Line']), \
+import sys as System
+if True:
+	import StringIO
+	import pygame, compiler
+	import urllib2
+print 'x'""", ['Statement', 'Print New Line']), \
 		Test('Keyword', """def f(x, y, a=True, b="h"):
-		if a:
-			print x+y+b
-	f('c','d', a=False)""", ['Statement', 'Print New Line']), \
+	if a:
+		print x+y+b
+f('c','d', a=False)""", ['Statement', 'Print New Line']), \
 		Test('Lambda', """f = lambda x, y, a=2: x+y+a*a
-	lambda: 5*2
-	lambda x, y: x*y
-	filter(lambda x: x>5, range(10))
-	lambda x, y, z=func(15, a=Person()): z/x**y
-	lambda:'n/a'""", ['Statement', 'Call Function']), \
+lambda: 5*2
+lambda x, y: x*y
+filter(lambda x: x>5, range(10))
+lambda x, y, z=func(15, a=Person()): z/x**y
+lambda:'n/a'""", ['Statement', 'Call Function']), \
 		Test('Left Shift', 'x<<(y<<z)', ['Statement']), \
 		Test('List', """[1,2,3,[1,2,"s"]]
-	x = []""", ['Statement']), \
+x = []""", ['Statement']), \
 		Test('List Comprehension', '[str(x) for x in range(10)]', ['Statement']), \
 		Test('List Comprehension For', '[x for x in range(5)]', ['Statement']), \
 		Test('List Comprehension If', '[x for x in range(10) if x < 4]', ['Statement']), \
@@ -241,88 +241,88 @@ if __name__ != '__main__' or len(sys.argv) == 1:
 		Test('Pass', 'pass', ['Statement']), \
 		Test('Power', '5**0.2', ['Statement']), \
 		Test('Print Inline', """print "TEST",
-	print "1: %s 2: %s" % (a, b),
-	print '  %-15s %s' % (cmd, description),
-	print >> x, "thing",
-	print a, b,
-	""", ['Statement']), \
+print "1: %s 2: %s" % (a, b),
+print '  %-15s %s' % (cmd, description),
+print >> x, "thing",
+print a, b,
+""", ['Statement']), \
 		Test('Print New Line', """print "TEST"
-	print "1: %s 2: %s" % (a, b)
-	print '  %-15s %s' % (cmd, description)
-	print
-	print >> x, 'thing'
-	print a, b
-	print(x for x in range(5))
-	#print "Creating %d trees of depth %d" % (5, 10)
-	""", ['Statement']), \
+print "1: %s 2: %s" % (a, b)
+print '  %-15s %s' % (cmd, description)
+print
+print >> x, 'thing'
+print a, b
+print(x for x in range(5))
+#print "Creating %d trees of depth %d" % (5, 10)
+""", ['Statement']), \
 		Test('Raise', """raise ValueError()
-	raise AssertionError('%s: %s' % (a, b)), None, x
-	raise
-	raise Thing(), something
-	raise Thing(), a, b
-	""", ['Statement']), \
+raise AssertionError('%s: %s' % (a, b)), None, x
+raise
+raise Thing(), something
+raise Thing(), a, b
+""", ['Statement']), \
 		Test('Return', """def f(x):
-		return x*x
-	def g():
-		return
-	def h():
-		return None
-	def i():
-		return 1, 2
-	def j():
-		return 1 / (math.hypot(point_position[0] - position[0], point_position[1] - position[1])**2 + 0.000001)
-	""", ['Statement']), \
+	return x*x
+def g():
+	return
+def h():
+	return None
+def i():
+	return 1, 2
+def j():
+	return 1 / (math.hypot(point_position[0] - position[0], point_position[1] - position[1])**2 + 0.000001)
+""", ['Statement']), \
 		Test('Right Shift', 'a>>b>>c>>d>>(e>>f)', ['Statement']), \
 		Test('Slice', """x[5:15]
-	y[:10]
-	z[a:]""", ['Statement']), \
+y[:10]
+z[a:]""", ['Statement']), \
 		Test('Slice Object', """
-	x[start:end:step]
-	""", ['Statement']), \
+x[start:end:step]
+""", ['Statement']), \
 		Test('Statement', 'True', ['Module', 'Name']), \
 		Test('Subtraction', '1-x', ['Constant', 'Name']), \
 		Test('Subscription', """x[5]
-	del x[y]
-	del(y[x])""", ['Statement']), \
+del x[y]
+del(y[x])""", ['Statement']), \
 		Test('Try Except', """try:
-		[0,1,2].remove(5)
-	except ValueError:
-		print "No 5"
-	except SyntaxError, e:
-		print "Syntax Error: "+str(e)
-	except:
-		print 'Other Error'
-		try:
-			print "Nested"
-		except:
-			print "Nest fail"
-		else:
-			print 'Nest worked'
-	""", ['Statement', 'Print New Line']), \
-		Test('Try Finally', """try:
-		print "x"
-	except:
-		print "y"
-	finally:
-		print 'z'
+	[0,1,2].remove(5)
+except ValueError:
+	print "No 5"
+except SyntaxError, e:
+	print "Syntax Error: "+str(e)
+except:
+	print 'Other Error'
 	try:
-		print "a"
-	finally:
-		print 'b'
-	""", ['Statement', 'Print New Line']), \
+		print "Nested"
+	except:
+		print "Nest fail"
+	else:
+		print 'Nest worked'
+""", ['Statement', 'Print New Line']), \
+		Test('Try Finally', """try:
+	print "x"
+except:
+	print "y"
+finally:
+	print 'z'
+try:
+	print "a"
+finally:
+	print 'b'
+""", ['Statement', 'Print New Line']), \
 		Test('Tuple', """(a, b, (c, d))
-	x=()""", ['Name']), \
+x=()""", ['Name']), \
 		Test('Unary Addition', '+3', ['Statement']), \
 		Test('Unary Subtraction', """-10
-	assert (-(1+x)**2).expand()""", ['Statement']), \
+assert (-(1+x)**2).expand()""", ['Statement']), \
 		Test('While Loop', """x = 1
-	while x < 5:
-		print str(x)
-		x += 1""", ['Statement', 'Print New Line']), \
+while x < 5:
+	print str(x)
+	x += 1""", ['Statement', 'Print New Line']), \
 		Test('With', """
-	with open('a', 'r') as f:
-		read(f)
-	""", ['Statement', 'Function Call']), \
+with open('a', 'r') as f:
+	read(f)
+""", ['Statement', 'Function Call']), \
 		Test('Yield', 'yield x', ['Statement']) \
 	]
 
