@@ -112,8 +112,7 @@ def set_defaults(argnames, defaults):
 	return ','.join(to_return)
 
 # This is the grammar, defined in OMeta, which does our translation
-grammar_def = """
-
+grammar_def = """#
 # "python" is used to output Python code from an AST node. The number given
 # to the "thing"  (usually 0) is the number of tabs to use as the initial
 # indentation.
@@ -121,11 +120,13 @@ python :i ::= <thing i>:t => t
 
 # A "thing" matches an AST node or a constant (constants can be supplied
 # through the global "constants")
-thing :i ::= <node i>+:t => ''.join(t)
+thing :i ::= <node i>:t => ''.join(t)
           | <anything>:a ?(type(a) in constants) => a
 
 # A "node" is an AST node. The handling of each is deferred to the 
-# appropriate rule for that node type
+# appropriate rule for that node type. Note that the order is mostly arbitrary,
+# since the definitions don't overlap, except for "delete" which must occur
+# first. The rest are alphabetical, for lack of a better order.
 node :i ::= <delete i>:d => d
           | <add i>:a => a
           | <and i>:a => a
@@ -206,73 +207,100 @@ node :i ::= <delete i>:d => d
 
 # Add is addition, with a left and a right
 # We want the left and right, joined by a plus sign '+'
-add :i ::= <anything>:a ?(a.__class__ == Add) => '('+str(a.left.rec(i))+' + '+str(a.right.rec(i))+')'
+add :i ::= <anything>:a ?(a.__class__ == Add) !(self.ins(a.left)) <thing i>:left !(self.ins(a.right)) <thing i>:right => '(('+str(left)+') + ('+str(right)+'))'
 
 # Matches a chain of logical AND operations on booleans
-and :i ::= <anything>:a ?(a.__class__ == And) => '('+') and ('.join([n.rec(i) for n in a.nodes])+')'
+# NOTE: We must add a.nodes on to the stack in reverse order, then pop them back
+# in the right order with n_things
+and :i ::= <anything>:a ?(a.__class__ == And) !([self.ins(n) for n in a.nodes[::-1]]) <n_things len(a.nodes) i>:ns => '('+') and ('.join(ns)+')'
 
 # Matches the binding of an object to a member name of another object
-assattr :i ::= <anything>:a ?(a.__class__ == AssAttr) => a.expr.rec(i)+'.'+a.attrname
+assattr :i ::= <anything>:a ?(a.__class__ == AssAttr) !(self.ins(a.expr)) <thing i>:e => e+'.'+a.attrname
 
 # Matches the binding of a list of items
-asslist :i ::= <anything>:a ?(a.__class__ == AssList) => '[' + ', '.join([n.rec(i) for n in a.nodes]) + ']'
+# NOTE: We must add a.nodes on to the stack in reverse order, then pop them back
+# in the right order with n_things
+asslist :i ::= <anything>:a ?(a.__class__ == AssList) !([self.ins(n) for n in a.nodes[::-1]]) <n_things len(a.nodes) i>:ns => '[' + ', '.join(ns) + ']'
 
 # AssName assigns to a variable name
 # We want the variable name
 assname :i ::= <anything>:a ?(a.__class__ == AssName) => a.name
 
 # Matches the assignment of multiple names to multiple objects
-asstuple :i ::= <anything>:a ?(a.__class__ == AssTuple) => '(' + ', '.join([n.rec(i) for n in a.nodes]) + ')'
+# NOTE: We must add a.nodes on to the stack in reverse order, then pop them back
+# in the right order with n_things
+asstuple :i ::= <anything>:a ?(a.__class__ == AssTuple) !([self.ins(n) for n in a.nodes[::-1]]) <n_things len(a.nodes) i>:ns => '(' + ', '.join(ns) + ')'
 
 # Matches a debug test
-assert :i ::= <anything>:a ?(a.__class__ == Assert) ?(a.fail is None) => 'assert '+a.test.rec(i)
-            | <anything>:a ?(a.__class__ == Assert) ?(not a.fail is None) => 'assert '+a.test.rec(i)+', '+a.fail.rec(i)
+assert :i ::= <anything>:a ?(a.__class__ == Assert) ?(a.fail is None) !(self.ins(a.test)) <thing i>:test => 'assert '+test
+            | <anything>:a ?(a.__class__ == Assert) ?(not a.fail is None) !(self.ins(a.test)) <thing i>:test !(self.ins(a.fail)) <thing i>:fail => 'assert '+test+', '+fail
 
 # Assign binds an expression "expr" to the list of things "nodes"
 # We want the list to be joined by equals signs and followed by expr
-assign :i ::= <anything>:a ?(a.__class__ == Assign) => ' = '.join([n.rec(i) for n in a.nodes]) + ' = ' + a.expr.rec(i)
+# NOTE: We must add a.nodes on to the stack in reverse order, then pop them back
+# in the right order with n_things
+assign :i ::= <anything>:a ?(a.__class__ == Assign) !([self.ins(n) for n in a.nodes[::-1]]) <n_things len(a.nodes) i>:ns !(self.ins(a.expr)) <thing i>:expr => ' = '.join(ns) + ' = ' + expr
 
 # Matches an in-place change to something
-augassign :i ::= <anything>:a ?(a.__class__ == AugAssign) => a.node.rec(i) + a.op + a.expr.rec(i)
+augassign :i ::= <anything>:a ?(a.__class__ == AugAssign) !(self.ins(a.node)) <thing i>:node !(self.ins(a.expr)) <thing i>:expr => node + a.op + expr
 
 # Matches deprecated object representations
-backquote :i ::= <anything>:a ?(a.__class__ == Backquote) => '`'+a.expr.rec(i)+'`'
+backquote :i ::= <anything>:a ?(a.__class__ == Backquote) !(self.ins(a.expr)) <thing i>:expr => '`'+expr+'`'
 
 # Matches bitwise AND
-bitand :i ::= <anything>:a ?(a.__class__ == Bitand) => '('+'&'.join(['('+n.rec(i)+')' for n in a.nodes])+')'
+# NOTE: We must add a.nodes on to the stack in reverse order, then pop them back
+# in the right order with n_things
+bitand :i ::= <anything>:a ?(a.__class__ == Bitand) !([self.ins(n) for n in a.nodes[::-1]]) <n_things len(a.nodes) i>:ns => '(('+')&('.join(ns)+'))'
 
 # Matches bitwise OR
-bitor :i ::= <anything>:a ?(a.__class__ == Bitor) => '('+'|'.join(['('+n.rec(i)+')' for n in a.nodes])+')'
+# NOTE: We must add a.nodes on to the stack in reverse order, then pop them back
+# in the right order with n_things
+bitor :i ::= <anything>:a ?(a.__class__ == Bitor) !([self.ins(n) for n in a.nodes[::-1]]) <n_things len(a.nodes) i>:ns => '(('+')|('.join(ns)+'))'
 
 # Matches bitwise XOR
-bitxor :i ::= <anything>:a ?(a.__class__ == Bitxor) => '('+'^'.join(['('+n.rec(i)+')' for n in a.nodes])+')'
+# NOTE: We must add a.nodes on to the stack in reverse order, then pop them back
+# in the right order with n_things
+bitxor :i ::= <anything>:a ?(a.__class__ == Bitxor) !([self.ins(n) for n in a.nodes[::-1]]) <n_things len(a.nodes) i>:ns => '(('+')^('.join(ns)+'))'
 
 # Matches an escape from a loop
 break :i ::= <anything>:a ?(a.__class__ == Break) => 'break'
 
 # Matches the sending of a message to an object
-callfunc :i ::= <anything>:a ?(a.__class__ == CallFunc) ?(a.star_args is None) ?(a.dstar_args is None) => a.node.rec(i)+'('+(', '.join([n.rec(i) for n in a.args]))+')'
-              | <anything>:a ?(a.__class__ == CallFunc) ?(len(a.args) > 0) ?(not a.star_args is None) ?(a.dstar_args is None) => a.node.rec(i)+'('+(', '.join([n.rec(i) for n in a.args]))+', *'+a.star_args.rec(i)+')'
-              | <anything>:a ?(a.__class__ == CallFunc) ?(len(a.args) > 0) ?(a.star_args is None) ?(not a.dstar_args is None) => a.node.rec(i)+'('+(', '.join([n.rec(i) for n in a.args]))+', **'+a.dstar_args.rec(i)+')'
-              | <anything>:a ?(a.__class__ == CallFunc) ?(len(a.args) > 0) ?(not a.star_args is None) ?(not a.dstar_args is None) => a.node.rec(i)+'('+(', '.join([n.rec(i) for n in a.args]))+', *'+a.star_args.rec(i)+', **'+a.dstar_args.rec(i)+')'
-              | <anything>:a ?(a.__class__ == CallFunc) ?(len(a.args) == 0) ?(not a.star_args is None) ?(a.dstar_args is None) => a.node.rec(i)+'(*'+a.star_args.rec(i)+')'
-              | <anything>:a ?(a.__class__ == CallFunc) ?(len(a.args) == 0) ?(a.star_args is None) ?(not a.dstar_args is None) => a.node.rec(i)+'(**'+a.dstar_args.rec(i)+')'
-              | <anything>:a ?(a.__class__ == CallFunc) ?(len(a.args) == 0) ?(not a.star_args is None) ?(not a.dstar_args is None) => a.node.rec(i)+'(*'+a.star_args.rec(i)+', **'+a.dstar_args.rec(i)+')'
+# NOTE: We must add a.args on to the stack in reverse order, then pop them back
+# in the right order with n_things
+callfunc :i ::= <anything>:a ?(a.__class__ == CallFunc) <callfunc_star a.star_args i>:star <callfunc_dstar a.dstar_args i>:dstar !(self.ins(a.node)) <thing i>:n !([self.ins(argument) for argument in a.args[::-1]]) <n_things len(a.args) i>:args => n+'('+', '.join(args+star+dstar)+')'
 
+callfunc_star :s :i ::= ?(s is None) => []
+                      | !(self.ins(s)) <thing i>:star => ['*'+star]
+
+callfunc_dstar :d :i ::= ?(d is None) => []
+                       | !(self.ins(d)) <thing i>:dstar => ['**'+dstar]
 
 # Matches the description of an object type
-class :i ::= <anything>:a ?(a.__class__ == Class) ?(v[1] < 6 or a.decorators is None) ?(len(a.bases) == 0) ?(a.doc is None) => 'class '+a.name+\""":\n\"""+a.code.rec(i+1)
-           | <anything>:a ?(a.__class__ == Class) ?(v[1] < 6 or a.decorators is None) ?(len(a.bases) == 0) ?(not a.doc is None) => 'class '+a.name+\""":\n\"""+('\t'*(i+1))+pick_quotes(a.doc)+a.code.rec(i+1)
-           | <anything>:a ?(a.__class__ == Class) ?(v[1] < 6 or a.decorators is None) ?(len(a.bases) > 0) ?(a.doc is None) => 'class '+a.name+'('+(', '.join([n.rec(i) for n in a.bases]))+\"""):\n\"""+a.code.rec(i+1)
-           | <anything>:a ?(a.__class__ == Class) ?(v[1] < 6 or a.decorators is None) ?(len(a.bases) > 0) ?(not a.doc is None) => 'class '+a.name+'('+(', '.join([n.rec(i) for n in a.bases]))+\"""):\n\"""+('\t'*(i+1))+pick_quotes(a.doc)+a.code.rec(i+1)
-           | <anything>:a ?(a.__class__ == Class) ?(v[1] > 6 and not a.decorators is None) ?(len(a.bases) == 0) ?(a.doc is None) => a.decorators.rec(i)+\"""\n\"""+(i*'\t')+'class '+a.name+\""":\n\"""+a.code.rec(i+1)
-           | <anything>:a ?(a.__class__ == Class) ?(v[1] > 6 and not a.decorators is None) ?(len(a.bases) == 0) ?(not a.doc is None) => a.decorators.rec(i)+\"""\n\"""+(i*'\t')+'class '+a.name+'\""":\n\"""+((i+1)*'\t')+pick_quotes(a.doc)+\"""\"""+a.code.rec(i+1)
-           | <anything>:a ?(a.__class__ == Class) ?(v[1] > 6 and not a.decorators is None) ?(len(a.bases) > 0) ?(a.doc is None) => a.decorators.rec(i)+\"""\n\"""+(i*'\t')+'class '+a.name('+(', '.join([n.rec(i) for n in a.bases]))+\"""):\"""+a.code.rec(i+1)
-           | <anything>:a ?(a.__class__ == Class) ?(v[1] > 6 and not a.decorators is None) ?(len(a.bases) > 0) ?(not a.doc is None) => a.decorators.rec(i)+\"""\n\"""+(i*'\t')+'class '+a.name+'('+(', '.join([n.rec(i) for n in a.bases]))+\""":\n\"""+((i+1)*'\t')+pick_quotes(a.doc)+a.code.rec(i+1)           
+class :i ::= <anything>:a ?(a.__class__ == Class) <class_decorators a.decorators i>:decs <class_doc a.doc i+1>:d <class_bases a.bases i>:bases !(self.ins(a.code)) <thing i+1>:code => decs+'class ' + a.name + bases + \""":\n\""" + d + code
+
+# Formats a class's docstring for use in <class>
+class_doc :d :i ::= ?(d is None) => ''
+                  | ?(d is not None) => ('\t'*i)+pick_quotes(d)+\"""\n\"""
+
+# Formats a class's superclasses for use in <class>
+class_bases :b :i ::= ?(len(b) == 0) => ''
+                    | ?(len(b) > 0) !([self.ins(base) for base in b[::-1]]) <n_things len(b) i>:bases => '(' + ', '.join(bases) + ')'
+
+# Formats a class's decorators for use in <class>
+class_decorators :d :i ::= <none_list d>:dlist ?(len(dlist) == 0) => ''
+                         | <none_list d>:dlist !([self.ins(dec) for dec in dlist[::-1]]) <n_things len(dlist) i>:decs => decs + \"""\n\""" + ('\t' * i)
 
 # Compare groups together comparisons (==, <, >, etc.)
 # We want the left-hand expression followed by each operation joined with its right-hand-side
-compare :i ::= <anything>:a ?(a.__class__ == Compare) => '(' + a.expr.rec(i) + ' ' + ' '.join([o[0]+' '+o[1].rec(i) for o in a.ops]) + ')'
+compare :i ::= <anything>:a ?(a.__class__ == Compare) !(self.ins(a.expr)) <thing i>:expr <comparison_choices a.ops>:ops <comparison_rhss a.ops>:rhss => '(' + expr + ' ' + ' '.join([' '.join(pair) for pair in zip(ops,rhss)]) + ')'
+
+# Makes a list of comparison types (==, <=, etc.) for use in <compare>
+comparison_choices :o ::= ?(len(o) == 0) => []
+                        | ?(len(o) > 0) => [comp[0] for comp in o]
+
+# Makes a list of the right-hand-side of comparisons for use in <compare>
+comparison_rhss :o :i ::= !([self.ins(c[1]) for c in o[::-1]]) <n_things len(o) i>:rhss => rhss
 
 # Const wraps a constant value
 # We want strings in quotes and numbers as strings
@@ -290,26 +318,26 @@ const :i ::= <anything>:a ?(a.__class__ == Const) ?(a.value is None) => ''
 continue :i ::= <anything>:a ?(a.__class__ == Continue) => 'continue'
 
 # Matches transformations applied to functions and classes
-decorators :i ::= <anything>:a ?(a.__class__ == Decorators) => '@'+((\"""\n\"""+'\t'*i + '@').join([n.rec(i) for n in a.nodes]))
+decorators :i ::= <anything>:a ?(a.__class__ == Decorators) !(a.nodes is not None and [self.ins(n) for n in a.nodes[::-1]]) <n_things len(a.nodes) i>:decs => '@'+((\"""\n\"""+'\t'*i + '@').join(decs))
 
 # Matches any nodes which represent deletions
-delete :i ::= <anything>:a ?(a.__class__ == AssTuple) ?(is_del(a)) => 'del('+', '.join([n.rec(i)[4:] for n in a.nodes])+')'
+delete :i ::= <anything>:a ?(a.__class__ == AssTuple) ?(is_del(a)) !([self.ins(n) for n in a.nodes[::-1]]) <n_things len(a.nodes) i>:dels => 'del('+', '.join([n[4:] for n in dels])+')'
             | <anything>:a ?(a.__class__ == AssName) ?(a.flags == 'OP_DELETE') => 'del '+a.name
-            | <anything>:a ?(a.__class__ == AssAttr) ?(a.flags == 'OP_DELETE') => 'del '+a.expr.rec(i)+'.'+a.attrname
-            | <anything>:a ?(a.__class__ == Slice) ?(a.flags == 'OP_DELETE') ?(a.upper is None) ?(a.lower is None) => 'del '+a.expr.rec(i)+'[:]'
-            | <anything>:a ?(a.__class__ == Slice) ?(a.flags == 'OP_DELETE') ?(a.upper is None) ?(not a.lower is None) => 'del '+a.expr.rec(i)+'['+a.lower.rec(i)+':]'
-            | <anything>:a ?(a.__class__ == Slice) ?(a.flags == 'OP_DELETE') ?(not a.upper is None) ?(a.lower is None) => 'del '+a.expr.rec(i)+'[:'+a.upper.rec(i)+']'
-            | <anything>:a ?(a.__class__ == Slice) ?(a.flags == 'OP_DELETE') ?(not a.upper is None) ?(not a.lower is None) => 'del '+a.expr.rec(i)+'['+a.lower.rec(i)+':'+a.upper.rec(i)+']'
-            | <anything>:a ?(a.__class__ == Subscript) ?(a.flags == 'OP_DELETE') => 'del '+a.expr.rec(i)+'['+', '.join([s.rec(i) for s in a.subs])+']'
+            | <anything>:a ?(a.__class__ == AssAttr) ?(a.flags == 'OP_DELETE') !(self.ins(a.expr)) <thing i>:expr => 'del '+expr+'.'+a.attrname
+            | <anything>:a ?(a.__class__ == Slice) ?(a.flags == 'OP_DELETE') ?(a.upper is None) ?(a.lower is None) !(self.ins(a.expr)) <thing i>:expr => 'del '+expr+'[:]'
+            | <anything>:a ?(a.__class__ == Slice) ?(a.flags == 'OP_DELETE') ?(a.upper is None) ?(not a.lower is None) !(self.ins(a.expr)) <thing i>:expr !(self.ins(a.lower)) <thing i>:lower => 'del '+expr+'['+lower+':]'
+            | <anything>:a ?(a.__class__ == Slice) ?(a.flags == 'OP_DELETE') ?(not a.upper is None) ?(a.lower is None) !(self.ins(a.expr)) <thing i>:expr !(self.ins(a.upper)) <thing i>:upper => 'del '+expr+'[:'+upper+']'
+            | <anything>:a ?(a.__class__ == Slice) ?(a.flags == 'OP_DELETE') ?(not a.upper is None) ?(not a.lower is None) !(self.ins(a.expr)) <thing i>:expr !(self.ins(a.lower)) <thing i>:lower !(self.ins(a.upper)) <thing i>:upper => 'del '+expr+'['+lower+':'+upper+']'
+            | <anything>:a ?(a.__class__ == Subscript) ?(a.flags == 'OP_DELETE') !(self.ins(a.expr)) <thing i>:expr !([self.ins(s) for s in a.subs[::-1]]) <n_things len(a.subs) i>:subs => 'del '+expr+'['+', '.join(subs)+']'
 
 # Matches unordered key/value collections
-dict :i ::= <anything>:a ?(a.__class__ == Dict) => '{'+(', '.join([o[0].rec(i)+':'+o[1].rec(i) for o in a.items]))+'}'
+dict :i ::= <anything>:a ?(a.__class__ == Dict) !([self.ins(o[0]) for o in a.items[::-1]]) <n_things len(a.items) i>:keys !([self.ins(o[1]) for o in a.items[::-1]]) <n_things len(a.items) i>:values => '{'+(', '.join([':'.join(pair) for pair in zip(keys,values)]))+'}'
 
 # Matches statements where a value is not bound to a name
-discard :i ::= <anything>:a ?(a.__class__ == Discard) => a.expr.rec(i)
+discard :i ::= <anything>:a ?(a.__class__ == Discard) !(self.ins(a.expr)) <thing i>:expr => expr
 
 # Matches division
-div :i ::= <anything>:a ?(a.__class__ == Div) => '(('+a.left.rec(i)+')/('+a.right.rec(i)+'))'
+div :i ::= <anything>:a ?(a.__class__ == Div) !(self.ins(a.left)) <thing i>:left !(self.ins(a.right)) <thing i>:right => '(('+left+')/('+right+'))'
 
 # Matches Ellipsis singleton (used for slicing N-dimensional objects)
 ellipsis :i ::= <anything>:a ?(a.__class__ == Ellipsis) => '...'
@@ -318,9 +346,9 @@ ellipsis :i ::= <anything>:a ?(a.__class__ == Ellipsis) => '...'
 emptynode :i ::= <anything>:a ?(a.__class__ == EmptyNode) => ''
 
 # Matches the dynamic execution of a string, file or piece of code
-exec :i ::= <anything>:a ?(a.__class__ == Exec) ?(a.globals is None) ?(a.locals is None) => 'exec ('+a.expr.rec(i)+')'
-          | <anything>:a ?(a.__class__ == Exec) ?(a.globals is None) ?(not a.locals is None) => 'exec ('+a.expr.rec(i)+') in ('+a.locals.rec(i)+')'
-          | <anything>:a ?(a.__class__ == Exec) ?(not a.globals is None) ?(not a.locals is None) => 'exec ('+a.expr.rec(i)+') in ('+a.locals.rec(i)+'), ('+a.globals.rec(i)+')'
+exec :i ::= <anything>:a ?(a.__class__ == Exec) ?(a.globals is None) ?(a.locals is None) !(self.ins(a.expr)) <thing i>:expr => 'exec ('+expr+')'
+          | <anything>:a ?(a.__class__ == Exec) ?(a.globals is None) ?(not a.locals is None) !(self.ins(a.expr)) <thing i>:expr !(self.ins(a.locals)) <thing i>:locals => 'exec ('+expr+') in ('+locals+')'
+          | <anything>:a ?(a.__class__ == Exec) ?(not a.globals is None) ?(not a.locals is None) !(self.ins(a.expr)) <thing i>:expr !(self.ins(a.locals)) <thing i>:locals !(self.ins(a.globals)) <thing i>:globals => 'exec ('+expr+') in ('+locals+'), ('+globals+')'
 
 # Don't know what this does :( Current plan: Keep testing code until we
 # come across something that uses it, then study that code to see what
@@ -328,11 +356,11 @@ exec :i ::= <anything>:a ?(a.__class__ == Exec) ?(a.globals is None) ?(a.locals 
 expression :i ::= <anything>:a ?(a.__class__ == Expression) => 'FAIL'
 
 # Matches integer division
-floordiv :i ::= <anything>:a ?(a.__class__ == FloorDiv) => '(' + a.left.rec(i) + ' // ' + a.right.rec(i) + ')'
+floordiv :i ::= <anything>:a ?(a.__class__ == FloorDiv) !(self.ins(a.left)) <thing i>:left!(self.ins(a.right)) <thing i>:right=> '(' + left + ' // ' + right + ')'
 
 # Matches for loops
-for :i ::= <anything>:a ?(a.__class__ == For) ?(a.else_ is None) => 'for '+a.assign.rec(i)+' in '+a.list.rec(i)+\""":\n\"""+a.body.rec(i+1)
-         | <anything>:a ?(a.__class__ == For) ?(not a.else_ is None) => 'for '+a.assign.rec(i)+' in '+a.list.rec(i)+\""":\n\"""+a.body.rec(i+1)+\"""\n\"""+(i*'\t')+\"""else:\n\"""+a.else_.rec(i+1)
+for :i ::= <anything>:a ?(a.__class__ == For) ?(a.else_ is None) !(self.ins(a.assign)) <thing i>:assign !(self.ins(a.list)) <thing i>:list !(self.ins(a.body)) <thing i+1>:body => 'for '+assign+' in '+list+\""":\n\"""+body
+         | <anything>:a ?(a.__class__ == For) ?(not a.else_ is None) !(self.ins(a.assign)) <thing i>:assign !(self.ins(a.list)) <thing i>:list !(self.ins(a.body)) <thing i+1>:body !(self.ins(a.else_)) <thing i+1>:else_ => 'for '+assign+' in '+list+\""":\n\"""+body+\"""\n\"""+(i*'\t')+\"""else:\n\"""+else_
 
 # Matches namespace injections
 from :i ::= <anything>:a ?(a.__class__ == From) => 'from '+(a.level*'.')+a.modname+' import '+', '.join(import_match(a.names))
@@ -351,173 +379,213 @@ from :i ::= <anything>:a ?(a.__class__ == From) => 'from '+(a.level*'.')+a.modna
 # Using [-2::-1] and [-3::-1] reverses & chops off 1 or 2 args as needed
 # tuple_args recursively turns nested arguments into appropriate strings
 
-function :i ::= <anything>:a ?(a.__class__ == Function) ?(a.decorators is None) ?(a.varargs is None) ?(a.kwargs is None) ?(a.doc is None) => 'def '+a.name+'('+', '.join(tuple_args(a.argnames)[::-1][len(a.defaults):][::-1]+([a.argnames[::-1][x]+'='+y.rec(i) for x,y in enumerate(a.defaults[::-1])][::-1]))+\"""):\"""+a.code.rec(i+1)
-              | <anything>:a ?(a.__class__ == Function) ?(a.decorators is None) ?(a.varargs is None) ?(a.kwargs is None) ?(not a.doc is None) => 'def '+a.name+'('+', '.join(tuple_args(a.argnames)[::-1][len(a.defaults):][::-1]+([a.argnames[::-1][x]+'='+y.rec(i) for x,y in enumerate(a.defaults[::-1])][::-1]))+\"""):\n\"""+('\t'*(i+1))+pick_quotes(a.doc)+a.code.rec(i+1)
-              | <anything>:a ?(a.__class__ == Function) ?(a.decorators is None) ?(a.varargs is None) ?(not a.kwargs is None) ?(a.doc is None) => 'def '+a.name+'('+', '.join(tuple_args(a.argnames)[::-1][len(a.defaults)+1:][::-1]+([a.argnames[-2::-1][x]+'='+y.rec(i) for x,y in enumerate(a.defaults[::-1])][::-1])+['**'+a.argnames[-1]])+\"""):\"""+a.code.rec(i+1)
-              | <anything>:a ?(a.__class__ == Function) ?(a.decorators is None) ?(a.varargs is None) ?(not a.kwargs is None) ?(not a.doc is None) => 'def '+a.name+'('+', '.join(tuple_args(a.argnames)[::-1][len(a.defaults)+1:][::-1]+([a.argnames[-2::-1][x]+'='+y.rec(i) for x,y in enumerate(a.defaults[::-1])][::-1])+['**'+a.argnames[-1]])+\"""):\n\"""+('\t'*(i+1))+pick_quotes(a.doc)+a.code.rec(i+1)
-              | <anything>:a ?(a.__class__ == Function) ?(a.decorators is None) ?(not a.varargs is None) ?(a.kwargs is None) ?(a.doc is None) => 'def '+a.name+'('+', '.join(tuple_args(a.argnames)[::-1][len(a.defaults)+1:][::-1]+([a.argnames[-2::-1][x]+'='+y.rec(i) for x,y in enumerate(a.defaults[::-1])][::-1])+['*'+a.argnames[-1]])+\"""):\"""+a.code.rec(i+1)              
-              | <anything>:a ?(a.__class__ == Function) ?(a.decorators is None) ?(not a.varargs is None) ?(a.kwargs is None) ?(not a.doc is None) => 'def '+a.name+'('+', '.join(tuple_args(a.argnames)[::-1][len(a.defaults)+1:][::-1]+([a.argnames[-2::-1][x]+'='+y.rec(i) for x,y in enumerate(a.defaults[::-1])][::-1])+['*'+a.argnames[-1]])+\"""):\n\"""+('\t'*(i+1))+pick_quotes(a.doc)+a.code.rec(i+1)
-              | <anything>:a ?(a.__class__ == Function) ?(a.decorators is None) ?(not a.varargs is None) ?(not a.kwargs is None) ?(a.doc is None) => 'def '+a.name+'('+', '.join(tuple_args(a.argnames)[::-1][len(a.defaults)+2:][::-1]+([a.argnames[-3::-1][x]+'='+y.rec(i) for x,y in enumerate(a.defaults[::-1])][::-1])+['*'+a.argnames[-2], '**'+a.argnames[-1]])+\"""):\"""+a.code.rec(i+1)
-              | <anything>:a ?(a.__class__ == Function) ?(a.decorators is None) ?(not a.varargs is None) ?(not a.kwargs is None) ?(not a.doc is None) => 'def '+a.name+'('+', '.join(tuple_args(a.argnames)[::-1][len(a.defaults)+2:][::-1]+([a.argnames[-3::-1][x]+'='+y.rec(i) for x,y in enumerate(a.defaults[::-1])][::-1])+['*'+a.argnames[-2], '**'+a.argnames[-1]])+\"""):\n\"""+('\t'*(i+1))+pick_quotes(a.doc)+a.code.rec(i+1)
-              | <anything>:a ?(a.__class__ == Function) ?(not a.decorators is None) ?(a.varargs is None) ?(a.kwargs is None) ?(a.doc is None) => a.decorators.rec(i)+\"""\n\"""+(i*'\t')+'def '+a.name+'('+', '.join(tuple_args(a.argnames)[::-1][len(a.defaults):][::-1]+([a.argnames[::-1][x]+'='+y.rec(i) for x,y in enumerate(a.defaults[::-1])][::-1]))+\"""):\"""+a.code.rec(i+1)
-              | <anything>:a ?(a.__class__ == Function) ?(not a.decorators is None) ?(a.varargs is None) ?(a.kwargs is None) ?(not a.doc is None) => a.decorators.rec(i)+\"""\n\"""+(i*'\t')+'def '+a.name+'('+', '.join(tuple_args(a.argnames)[::-1][len(a.defaults):][::-1]+([a.argnames[::-1][x]+'='+y.rec(i) for x,y in enumerate(a.defaults[::-1])][::-1]))+\"""):\n\"""+('\t'*(i+1))+pick_quotes(a.doc)+a.code.rec(i+1)
-              | <anything>:a ?(a.__class__ == Function) ?(not a.decorators is None) ?(a.varargs is None) ?(not a.kwargs is None) ?(a.doc is None) => a.decorators.rec(i)+\"""\n\"""+(i*'\t')+'def '+a.name+'('+', '.join(tuple_args(a.argnames)[::-1][len(a.defaults)+1:][::-1]+([a.argnames[-2::-1][x]+'='+y.rec(i) for x,y in enumerate(a.defaults[::-1])][::-1])+['**'+a.argnames[-1]])+\"""):\"""+a.code.rec(i+1)
-              | <anything>:a ?(a.__class__ == Function) ?(not a.decorators is None) ?(a.varargs is None) ?(not a.kwargs is None) ?(not a.doc is None) => a.decorators.rec(i)+\"""\n\"""+(i*'\t')+'def '+a.name+'('+', '.join(tuple_args(a.argnames)[::-1][len(a.defaults)+1:][::-1]+([a.argnames[-2::-1][x]+'='+y.rec(i) for x,y in enumerate(a.defaults[::-1])][::-1])+['**'+a.argnames[-1]])+\"""):\n\"""+('\t'*(i+1))+pick_quotes(a.doc)+a.code.rec(i+1)
-              | <anything>:a ?(a.__class__ == Function) ?(not a.decorators is None) ?(not a.varargs is None) ?(a.kwargs is None) ?(a.doc is None) => a.decorators.rec(i)+\"""\n\"""+(i*'\t')+'def '+a.name+'('+', '.join(tuple_args(a.argnames)[::-1][len(a.defaults)+1:][::-1]+([a.argnames[-2::-1][x]+'='+y.rec(i) for x,y in enumerate(a.defaults[::-1])][::-1])+['*'+a.argnames[-1]])+\"""):\"""+a.code.rec(i+1)
-              | <anything>:a ?(a.__class__ == Function) ?(not a.decorators is None) ?(not a.varargs is None) ?(a.kwargs is None) ?(not a.doc is None) => a.decorators.rec(i)+\"""\n\"""+(i*'\t')+'def '+a.name+'('+', '.join(tuple_args(a.argnames)[::-1][len(a.defaults)+1:][::-1]+([a.argnames[-2::-1][x]+'='+y.rec(i) for x,y in enumerate(a.defaults[::-1])][::-1])+['*'+a.argnames[-1]])+\"""):\n\"""+('\t'*(i+1))+pick_quotes(a.doc)+a.code.rec(i+1)
-              | <anything>:a ?(a.__class__ == Function) ?(not a.decorators is None) ?(not a.varargs is None) ?(not a.kwargs is None) ?(a.doc is None) => a.decorators.rec(i)+\"""\n\"""+(i*'\t')+'def '+a.name+'('+', '.join(tuple_args(a.argnames)[::-1][len(a.defaults)+2:][::-1]+([a.argnames[-3::-1][x]+'='+y.rec(i) for x,y in enumerate(a.defaults[::-1])][::-1])+['*'+a.argnames[-2], '**'+a.argnames[-1]])+\"""):\"""+a.code.rec(i+1)
-              | <anything>:a ?(a.__class__ == Function) ?(not a.decorators is None) ?(not a.varargs is None) ?(not a.kwargs is None) ?(not a.doc is None) => a.decorators.rec(i)+\"""\n\"""+(i*'\t')+'def '+a.name+'('+', '.join(tuple_args(a.argnames)[::-1][len(a.defaults)+2:][::-1]+([a.argnames[-3::-1][x]+'='+y.rec(i) for x,y in enumerate(a.defaults[::-1])][::-1])+['*'+a.argnames[-2], '**'+a.argnames[-1]])+\"""):\n\"""+('\t'*(i+1))+pick_quotes(a.doc)+a.code.rec(i+1)
+function :i ::= <anything>:a ?(a.__class__ == Function) <function_decorators a.decorators i>:decs ?(a.varargs is None) ?(a.kwargs is None) <function_doc a.doc i+1>:doc !([self.ins(d) for d in a.defaults[::-1]]) <n_things len(a.defaults) i>:defaults !(self.ins(a.code)) <thing i+1>:code => decs+'def '+a.name+'('+', '.join(tuple_args(a.argnames)[::-1][len(a.defaults):][::-1]+([a.argnames[::-1][x]+'='+y for x,y in enumerate(defaults[::-1])][::-1]))+\"""):\"""+doc+code
+              | <anything>:a ?(a.__class__ == Function) <function_decorators a.decorators i>:decs ?(a.varargs is None) ?(not a.kwargs is None) <function_doc a.doc i+1>:doc !([self.ins(d) for d in a.defaults[::-1]]) <n_things len(a.defaults) i>:defaults !(self.ins(a.code)) <thing i+1>:code => 'def '+a.name+'('+', '.join(tuple_args(a.argnames)[::-1][len(a.defaults)+1:][::-1]+([a.argnames[-2::-1][x]+'='+y for x,y in enumerate(defaults[::-1])][::-1])+['**'+a.argnames[-1]])+\"""):\"""+code
+              | <anything>:a ?(a.__class__ == Function) <function_decorators a.decorators i>:decs ?(not a.varargs is None) ?(a.kwargs is None) <function_doc a.doc i+1>:doc !([self.ins(d) for d in a.defaults[::-1]]) <n_things len(a.defaults) i>:defaults !(self.ins(a.code)) <thing i+1>:code => 'def '+a.name+'('+', '.join(tuple_args(a.argnames)[::-1][len(a.defaults)+1:][::-1]+([a.argnames[-2::-1][x]+'='+y for x,y in enumerate(defaults[::-1])][::-1])+['*'+a.argnames[-1]])+\"""):\"""+code            
+              | <anything>:a ?(a.__class__ == Function) <function_decorators a.decorators i>:decs ?(not a.varargs is None) ?(not a.kwargs is None) <function_doc a.doc i+1>:doc !([self.ins(d) for d in a.defaults[::-1]]) <n_things len(a.defaults) i>:defaults !(self.ins(a.code)) <thing i+1>:code => 'def '+a.name+'('+', '.join(tuple_args(a.argnames)[::-1][len(a.defaults)+2:][::-1]+([a.argnames[-3::-1][x]+'='+y for x,y in enumerate(defaults[::-1])][::-1])+['*'+a.argnames[-2], '**'+a.argnames[-1]])+\"""):\"""+code
+
+# Formats a function's decorators for use in <function>
+function_decorators :d :i ::= ?(d is None) => ''
+                            | ?(d is not None) !(self.ins(d)) <thing i>:decs => decs+\"""\n\"""+(i*'\t')
+
+function_doc :d :i ::= ?(d is None) => ''
+                     | ?(d is not None) => \"""\n\"""+('\t'*(i))+pick_quotes(d)
 
 # Matches list-generating expressions
-genexpr :i ::= <anything>:a ?(a.__class__ == GenExpr) => '('+a.code.rec(i)+')'
+genexpr :i ::= <anything>:a ?(a.__class__ == GenExpr) !(self.ins(a.code)) <thing i>:code => '('+code+')'
 
 # Matches the loops of a list-generating expression
-genexprfor :i ::= <anything>:a ?(a.__class__ == GenExprFor) => 'for '+a.assign.rec(i)+' in '+a.iter.rec(i)+' '.join([n.rec(i) for n in a.ifs])
+genexprfor :i ::= <anything>:a ?(a.__class__ == GenExprFor) !(self.ins(a.assign)) <thing i>:assign !(self.ins(a.iter)) <thing i>:iter !([self.ins(z) for z in a.ifs[::-1]]) <n_things len(a.ifs) i>:ifs => 'for '+assign+' in '+iter+' '.join(ifs)
 
 # Matches any conditions on members in a list-generating expression
-genexprif :i ::= <anything>:a ?(a.__class__ == GenExprIf) => ' if '+a.test.rec(i)
+genexprif :i ::= <anything>:a ?(a.__class__ == GenExprIf) !(self.ins(a.test)) <thing i>:test => ' if '+test
 
 # Matches the body of a list-generating expression
-genexprinner :i ::= <anything>:a ?(a.__class__ == GenExprInner) => a.expr.rec(i)+' '+' '.join([n.rec(i) for n in a.quals])
+genexprinner :i ::= <anything>:a ?(a.__class__ == GenExprInner) !([self.ins(n) for n in a.quals[::-1]]) <n_things len(a.quals) i>:quals !(self.ins(a.expr)) <thing i>:expr => expr+' '+' '.join(quals)
 
 # Matches the retrieval of an object's attribute
-getattr :i ::= <anything>:a ?(a.__class__ == Getattr) => a.expr.rec(i)+'.'+''.join([b for b in [a.attrname] if type(b) == type('string')])+''.join([b.rec(i) for b in [a.attrname] if type(b) != type('string')])
+getattr :i ::= <anything>:a ?(a.__class__ == Getattr) !(self.ins(a.expr)) <thing i>:expr !(self.ins(a.attrname)) <getattr_name i>:attrname => expr+'.'+attrname
+
+# Selects a node or a string, for use in <getattr>
+getattr_name :i ::= <thing i>:n => n
+                  | <anything>:n ?(type(n) == type('string')) => n
 
 # Matches the injection of a variable from a parent namespace
 global :i ::= <anything>:a ?(a.__class__ == Global) => 'global '+', '.join(a.names)
 
 # Matches if, elif and else conditions
-if :i ::= <anything>:a ?(a.__class__ == If) ?(len(a.tests) == 1) ?(a.else_ is None) => 'if '+a.tests[0][0].rec(i)+\""":\n\"""+a.tests[0][1].rec(i+1)
-        | <anything>:a ?(a.__class__ == If) ?(len(a.tests) == 1) ?(not a.else_ is None) => 'if '+a.tests[0][0].rec(i)+\""":\n\"""+a.tests[0][1].rec(i+1)+\"""\n\"""+(i*'\t')+\"""else:\n\"""+a.else_.rec(i+1)
-        | <anything>:a ?(a.__class__ == If) ?(len(a.tests) > 1) ?(a.else_ is None) => 'if '+a.tests[0][0].rec(i)+\""":\n\"""+a.tests[0][1].rec(i+1)+''.join([\"""\n\"""+('\t'*i)+'elif '+n[0].rec(i)+\""":\n\"""+n[1].rec(i+1) for n in a.tests[1:]])
-        | <anything>:a ?(a.__class__ == If) ?(len(a.tests) > 1) ?(not a.else_ is None) => 'if '+a.tests[0][0].rec(i)+\""":\n\"""+a.tests[0][1].rec(i+1)+''.join([\"""\n\"""+('\t'*i)+'elif '+n[0].rec(i)+\""":\n\"""+n[1].rec(i+1) for n in a.tests[1:]])+\"""\n\"""+(i*'\t')+\"""else:\n\"""+a.else_.rec(i+1)
+if :i ::= <anything>:a ?(a.__class__ == If) ?(len(a.tests) == 1) !(self.ins(a.tests[0][0])) <thing i>:test !(self.ins(a.tests[0][1])) <thing i+1>:code <if_else a.else_ i+1>:else_ => 'if '+test+\""":\n\"""+code+\"""\n\"""+(i*'\t')+else_+\"""\n\"""
+        | <anything>:a ?(a.__class__ == If) ?(len(a.tests) > 1) !(self.ins(a.tests[0][0])) <thing i>:test !(self.ins(a.tests[0][1])) <thing i+1>:code <if_else a.else_ i+1>:else_ !([self.ins(n[0]) for n in a.tests[1::-1]]) <n_things len(a.tests)-1 i>:ifs !([self.ins(n[1]) for n in a.tests[1::-1]]) <n_things len(a.tests)-1 i+1>:thens => 'if '+test+\""":\n\"""+code+''.join([\"""\n\"""+('\t'*i)+'elif '+(\""":\n\""".join(pair)) for pair in zip(ifs,thens)])+\"""\n\"""+('\t'*i)+else_+\"""\n\"""
 
-ifexp :i ::= <anything>:a ?(a.__class__ == IfExp) => '(' + a.then.rec(i) + ') if (' + a.test.rec(i) + ') else (' + a.else_.rec(i) + ')'
+# Formats an else statement for use in <if>
+if_else :e :i ::= ?(e is None) => ''
+                | ?(e is not None) !(self.ins(e)) <thing i>:else_ => \"""else:\n\"""+else_
+
+ifexp :i ::= <anything>:a ?(a.__class__ == IfExp) !(self.ins(a.then)) <thing i>:then !(self.ins(a.test)) <thing i>:test !(self.ins(a.else_)) <thing i>:else_ => '(' + then + ') if (' + test + ') else (' + else_ + ')'
 
 # Matches the access of external modules
 import :i ::= <anything>:a ?(a.__class__ == Import) => 'import '+', '.join(import_match(a.names))
 
-invert :i ::= <anything>:a ?(a.__class__ == Invert) => '(~('+a.expr.rec(i)+'))'
+invert :i ::= <anything>:a ?(a.__class__ == Invert) !(self.ins(a.expr)) <thing i>:expr => '(~('+expr+'))'
 
 # Matches a key/value pair in an argument list
-keyword :i ::= <anything>:a ?(a.__class__ == Keyword) => a.name+'='+a.expr.rec(i)
+keyword :i ::= <anything>:a ?(a.__class__ == Keyword) !(self.ins(a.expr)) <thing i>:expr => a.name+'='+expr
 
 # Matches anonymous functions
 # FIXME: What do the flags represent?
-lambda :i ::= <anything>:a ?(a.__class__ == Lambda) => 'lambda '+set_defaults(a.argnames, [n.rec(i) for n in a.defaults])+': '+a.code.rec(i)
+lambda :i ::= <anything>:a ?(a.__class__ == Lambda) !([self.ins(n) for n in a.defaults[::-1]]) <n_things len(a.defaults) i>:defaults !(self.ins(a.code)) <thing i>:code => 'lambda '+set_defaults(a.argnames, defaults)+': '+code
 
 # Matches leftwards bit shifts
-leftshift :i ::= <anything>:a ?(a.__class__ == LeftShift) => '(('+a.left.rec(i)+')<<('+a.right.rec(i)+'))'
+leftshift :i ::= <anything>:a ?(a.__class__ == LeftShift) !(self.ins(a.left)) <thing i>:left !(self.ins(a.right)) <thing i>:right => '(('+left+')<<('+right+'))'
 
 # Matches a mutable, ordered collection 
-list :i ::= <anything>:a ?(a.__class__ == List) => '['+', '.join([n.rec(i) for n in a.nodes])+']'
+list :i ::= <anything>:a ?(a.__class__ == List) !([self.ins(n) for n in a.nodes[::-1]]) <n_things i>:nodes => '['+', '.join(nodes)+']'
 
 # Matches lists-creating expressions
-listcomp :i ::= <anything>:a ?(a.__class__ == ListComp) => '['+a.expr.rec(i)+' '.join([n.rec(i) for n in a.quals])+']'
+listcomp :i ::= <anything>:a ?(a.__class__ == ListComp) !(self.ins(a.expr)) <thing i>:expr !([self.ins(n) for n in a.quals[::-1]]) <n_things len(a.quals) i>:quals => '['+expr+' '.join(quals)+']'
 
 # Matches transformations applied to existing lists in generating expressions
-listcompfor :i ::= <anything>:a ?(a.__class__ == ListCompFor) => ' for '+a.assign.rec(i)+' in '+a.list.rec(i)+''.join([n.rec(i) for n in a.ifs])
+listcompfor :i ::= <anything>:a ?(a.__class__ == ListCompFor) !(self.ins(a.assign)) <thing i>:assign !(self.ins(a.list)) <thing i>:list_ <none_list a.ifs>:iflist !([self.ins(n) for n in iflist[::-1]]) <n_things len(iflist) i>:ifs => ' for '+assign+' in '+list_+''.join(iflist)
 
 # Matches selection conditions in list-generating expressions
-listcompif :i ::= <anything>:a ?(a.__class__ == ListCompIf) => ' if '+a.test.rec(i)
-
+listcompif :i ::= <anything>:a ?(a.__class__ == ListCompIf) !(self.ins(a.test)) <thing i>:test => ' if '+test
 
 # Matches remainder functions (the remainder of the left after dividing
 # by the right)
-mod :i ::= <anything>:a ?(a.__class__ == Mod) => '(('+a.left.rec(i)+') % ('+a.right.rec(i)+'))'
+mod :i ::= <anything>:a ?(a.__class__ == Mod) !(self.ins(a.left)) <thing i>:left !(self.ins(a.right)) <thing i>:right => '(('+left+') % ('+right+'))'
 
 # Modules contain a Stmt node, and optionally a doc string
 # We want the doc string (if it has one) followed by the Stmt
-module :i ::= <anything>:a ?(a.__class__ == Module) ?(a.doc is None)    => a.node.rec(i)
-            | <anything>:a ?(a.__class__ == Module) ?(a.doc is not None) => pick_quotes(a.doc)+a.node.rec(i)
+module :i ::= <anything>:a ?(a.__class__ == Module) ?(a.doc is None) !(self.ins(a.node)) <thing i>:node => node
+            | <anything>:a ?(a.__class__ == Module) ?(a.doc is not None) !(self.ins(a.node)) <thing i>:node=> pick_quotes(a.doc)+node
 
 # Matches multiplication
-mul :i ::= <anything>:a ?(a.__class__ == Mul) => '(('+a.left.rec(i)+') * ('+a.right.rec(i)+'))'
+mul :i ::= <anything>:a ?(a.__class__ == Mul) !(self.ins(a.left)) <thing i>:left !(self.ins(a.right)) <thing i>:right => '(('+left+') * ('+right+'))'
 
 # Matches the use of a variable name
 name :i ::= <anything>:a ?(a.__class__ == Name) => a.name
 
 # Matches the negation of a boolean
-not :i ::= <anything>:a ?(a.__class__ == Not) => '(not ('+a.expr.rec(i)+'))'
+not :i ::= <anything>:a ?(a.__class__ == Not) !(self.ins(a.expr)) <thing i>:expr => '(not ('+expr+'))'
 
 # Matches a chain of logical OR operations on booleans
-or :i ::= <anything>:a ?(a.__class__ == Or) => '(('+') or ('.join([n.rec(i) for n in a.nodes])+'))'
+or :i ::= <anything>:a ?(a.__class__ == Or) !([self.ins(n) for n in a.nodes[::-1]]) <n_things i>:nodes => '(('+') or ('.join(nodes)+'))'
 
 # Matches a placeholder where indentation requires a code block but no
 # code is needed
 pass :i ::= <anything>:a ?(a.__class__ == Pass) => 'pass'
 
 # Matches exponentiation
-power :i ::= <anything>:a ?(a.__class__ == Power) => '(('+a.left.rec(i)+')**('+a.right.rec(i)+'))'
+power :i ::= <anything>:a ?(a.__class__ == Power) !(self.ins(a.left)) <thing i>:left !(self.ins(a.right)) <thing i>:right => '(('+left+')**('+right+'))'
 
 # Matches outputting text (without a newline)
-print :i ::= <anything>:a ?(a.__class__ == Print) ?(a.dest is None) => 'print '+', '.join([n.rec(i) for n in a.nodes])+','
-           | <anything>:a ?(a.__class__ == Print) => 'print >> '+a.dest.rec(i)+', '+', '.join([n.rec(i) for n in a.nodes])+','
+print :i ::= <anything>:a ?(a.__class__ == Print) ?(a.dest is None) !([self.ins(n) for n in a.nodes[::-1]]) <n_things len(a.nodes) i>:nodes => 'print '+', '.join(nodes)+','
+           | <anything>:a ?(a.__class__ == Print) !(a.dest) <thing i>:dest !([self.ins(n) for n in a.nodes[::-1]]) <n_things len(a.nodes) i>:nodes => 'print >> '+dest+', '+', '.join(nodes)+','
 
 # Matches outputting text with a newline
-printnl :i ::= <anything>:a ?(a.__class__ == Printnl) ?(a.dest is None) => 'print '+', '.join([n.rec(i) for n in a.nodes])
-             | <anything>:a ?(a.__class__ == Printnl) => 'print >> '+a.dest.rec(i)+', '+', '.join([n.rec(i) for n in a.nodes])
+printnl :i ::= <anything>:a ?(a.__class__ == Printnl) ?(a.dest is None) !([self.ins(n) for n in a.nodes[::-1]]) <n_things len(a.nodes) i>:nodes => 'print '+', '.join(nodes)
+             | <anything>:a ?(a.__class__ == Printnl) !(a.dest) <thing i>:dest !([self.ins(n) for n in a.nodes[::-1]]) <n_things len(a.nodes) i>:nodes => 'print >> '+dest+', '+', '.join(nodes)
 
 # Matches error passing
-raise :i ::= <anything>:a ?(a.__class__ == Raise) => 'raise '+', '.join([t[0] for t in [[e] for n,e in enumerate([a.expr3,a.expr2,a.expr1]) if e is not None or any([a.expr1,a.expr2,a.expr3][-(n+1):])] if (t[0] is not None and t.__setitem__(0,t[0].rec(i))) or (t[0] is None and t.__setitem__(0, 'None')) or True][::-1])
+raise :i ::= <anything>:a ?(a.__class__ == Raise) <raise_exprs a.expr1 a.expr2 a.expr3 i>:exprs => 'raise '+exprs
+
+raise_exprs :f :s :t :i ::= <raise_expr1 f s t i>:first <raise_expr2 f s t i>:second <raise_expr3 f s t i>:third => ', '.join(first+second+third)
+
+raise_expr1 :f :s :t :i ::= ?(f is not None) !(self.ins(f)) <thing i>:first => [first]
+                          | ?(s is not None or t is not None) => ['None']
+                          | ?(f is None and s is None and t is None) => []
+
+raise_expr2 :f :s :t :i ::= ?(s is not None) !(self.ins(s)) <thing i>:second => [second]
+                          | ?(t is not None) => ['None']
+                          | ?(s is None and t is None) => []
+
+raise_expr3 :f :s :t :i ::= ?(t is not None) !(self.ins(t)) <thing i>:third => [third]
+                          | ?(t is None) => []
 
 # Matches the passing of return values from functions, etc.
-return :i ::= <anything>:a ?(a.__class__ == Return) => 'return '+a.value.rec(i)
+return :i ::= <anything>:a ?(a.__class__ == Return) !(self.ins(a.value)) <thing i>:value => 'return '+value
 
-rightshift :i ::= <anything>:a ?(a.__class__ == RightShift) => '(('+a.left.rec(i)+')>>('+a.right.rec(i)+'))'
+rightshift :i ::= <anything>:a ?(a.__class__ == RightShift) !(self.ins(a.left)) <thing i>:left !(self.ins(a.right)) <thing i>:right => '(('+left+')>>('+right+'))'
 
 # Matches a subset of an ordered sequence
 # We want the upper and lower boundaries if present, subscripting the
 # sequence expression with them, separated by a colon (blank for None)
-slice :i ::= <anything>:a ?(a.__class__ == Slice) ?(a.upper is None) ?(a.lower is None) => a.expr.rec(i)+'[:]'
-           | <anything>:a ?(a.__class__ == Slice) ?(a.upper is None) ?(not a.lower is None) => a.expr.rec(i)+'['+a.lower.rec(i)+':]'
-           | <anything>:a ?(a.__class__ == Slice) ?(not a.upper is None) ?(a.lower is None) => a.expr.rec(i)+'[:'+a.upper.rec(i)+']'
-           | <anything>:a ?(a.__class__ == Slice) ?(not a.upper is None) ?(not a.lower is None) => a.expr.rec(i)+'['+a.lower.rec(i)+':'+a.upper.rec(i)+']'
+slice :i ::= <anything>:a ?(a.__class__ == Slice) !(self.ins(a.expr)) <thing i>:expr <slice_upper a.upper i>:upper <slice_lower a.lower i>:lower => expr+'['+upper+':'+lower+']'
 
-sliceobj :i ::= <anything>:a ?(a.__class__ == Sliceobj) => ':'.join([n.rec(i) for n in a.nodes])
+slice_upper :u :i ::= ?(u is None) => ''
+                    | ?(u is not None) !(self.ins(u)) <thing i>:upper => upper 
+
+slice_lower :l :i ::= ?(l is None) => ''
+                    | ?(l is not None) !(self.ins(l)) <thing i>:lower => lower
+
+sliceobj :i ::= <anything>:a ?(a.__class__ == Sliceobj) !([self.ins(n) for n in a.nodes[::-1]]) <n_things len(a.nodes) i>:nodes => ':'.join(nodes)
 
 # Stmt is a statement (code block), containing a list of nodes
 # We want each node to be on a new line with i tabs as indentation
 # We make a special case if the 'statement' is a constant None, since this ends
-# up putting 
-stmt :i ::= <anything>:a ?(a.__class__ == Stmt) => (\"""\n\"""+'\t'*i)+(\"""\n\"""+'\t'*i).join([n.rec(i)+';'*len([b for b in [0] if len(a.nodes)>e+1 and a.nodes[e+1].__class__ == Discard and a.nodes[e+1].expr.__class__ == Const and a.nodes[e+1].expr.value is None]) for e,n in enumerate(a.nodes)])
+# up putting a semicolon
+stmt :i ::= <anything>:a ?(a.__class__ == Stmt) !([self.ins(n) for n in a.nodes[::-1]]) <n_things len(a.nodes) i>:nodes => (\"""\n\"""+'\t'*i)+(\"""\n\"""+'\t'*i).join([n+';'*len([b for b in [0] if len(a.nodes)>e+1 and a.nodes[e+1].__class__ == Discard and a.nodes[e+1].expr.__class__ == Const and a.nodes[e+1].expr.value is None]) for e,n in enumerate(nodes)])
 
 # Matches subtraction
-sub :i ::= <anything>:a ?(a.__class__ == Sub) => '(('+a.left.rec(i)+') - ('+a.right.rec(i)+'))'
+sub :i ::= <anything>:a ?(a.__class__ == Sub) !(self.ins(a.left)) <thing i>:left !(self.ins(a.right)) <thing i>:right => '(('+left+') - ('+right+'))'
 
 # Matches extracting item(s) from a collection based on an index or key
-subscript :i ::= <anything>:a ?(a.__class__ == Subscript) => a.expr.rec(i)+'['+', '.join([s.rec(i) for s in a.subs])+']'
+subscript :i ::= <anything>:a ?(a.__class__ == Subscript) !(self.ins(a.expr)) <thing i>:expr !([self.ins(s) for s in a.subs[::-1]]) <n_things len(a.subs) i>:subs => expr+'['+', '.join(subs)+']'
 
 # Matches try/except blocks
-tryexcept :i ::= <anything>:a ?(a.__class__ == TryExcept) ?(a.else_ is None) => 'try:'+a.body.rec(i+1)+\"""\n\"""+i*'\t'+(\"""\n\"""+i*'\t').join(['except'+' '.join([' '+e.rec(i) for e in [h[0]] if not e is None])+', '.join([', '+n.rec(i) for n in [h[1]] if not n is None])+':'+h[2].rec(i+1) for h in a.handlers])
-               | <anything>:a ?(a.__class__ == TryExcept) ?(not a.else_ is None) => 'try:'+a.body.rec(i+1)+\"""\n\"""+i*'\t'+(\"""\n\"""+i*'\t').join(['except '+' '.join([' '+e.rec(i) for e in [h[0]] if not e is None])+', '.join([', '+n.rec(i) for n in [h[1]] if not n is None])+':'+h[2].rec(i+1) for h in a.handlers])+\"""\n\"""+'\t'*i+\"""else:\"""+a.else_.rec(i+1)
+tryexcept :i ::= <anything>:a ?(a.__class__ == TryExcept) <tryexcept_else a.else_ i>:else_ !(self.ins(a.body)) <thing i+1>:body <one_except a.handlers i>:hs => 'try:'+body+\"""\n\"""+i*'\t'+(\"""\n\"""+i*'\t').join(hs)+else_
+
+one_except :e :i ::= ?(len(e) > 0) <h_zero e[0] i>:h <h_one e[0] i>:h1 !(self.ins(e[0][2])) <thing i+i>:h2 <one_except e[1:] i>:next => ['except' + ' '.join(h) + ', '.join(h1) + h2]+next
+                   | ?(len(e) == 0) => []
+
+h_zero :h :i ::= ?(h[0] is None) => []
+               | ?(h[0] is not None) !(self.ins(h[0])) <thing i>:h0 => [' '+h0]
+
+h_one :h :i ::= ?(h[1] is None) => []
+              | ?(h[1] is not None) !(self.ins(h[1])) <thing i>:h1 => [', '+h1]
+ 
+tryexcept_else :e :i ::= ?(e is not None) !(self.ins(e)) <thing i+1>:else_ => \"""\n\"""+'\t'*i+\"""else:\"""+else_
+                       | ?(e is None) => ''
 
 # Catches finally clauses on try/except blocks
-tryfinally :i ::= <anything>:a ?(a.__class__ == TryFinally) ?(a.body.__class__ == TryExcept) => a.body.rec(i)+\"""\n\"""+i*'\t'+'finally:'+a.final.rec(i+1)
-                | <anything>:a ?(a.__class__ == TryFinally) => 'try:'+a.body.rec(i+1)+\"""\n\"""+i*'\t'+'finally:'+a.final.rec(i+1)
+tryfinally :i ::= <anything>:a ?(a.__class__ == TryFinally) ?(a.body.__class__ == TryExcept) !(self.ins(a.body)) <thing i>:body !(self.ins(a.final)) <thing i+1>:final => body+\"""\n\"""+i*'\t'+'finally:'+final
+                | <anything>:a ?(a.__class__ == TryFinally) !(self.ins(a.body)) <thing i+1>:body !(self.ins(a.final)) <thing i+1>:final => 'try:'+body+\"""\n\"""+i*'\t'+'finally:'+final
 
 # Matches an immutable, ordered collection
-tuple :i ::= <anything>:a ?(a.__class__ == Tuple) ?(len(a.nodes) > 1) => '('+', '.join([n.rec(i) for n in a.nodes])+')'
-           | <anything>:a ?(a.__class__ == Tuple) ?(len(a.nodes) == 1) => '('+a.nodes[0].rec(i)+',)'
+tuple :i ::= <anything>:a ?(a.__class__ == Tuple) ?(len(a.nodes) > 1) !([self.ins(n) for n in a.nodes[::-1]]) <n_things len(a.nodes) i>:nodes => '('+', '.join(nodes)+')'
+           | <anything>:a ?(a.__class__ == Tuple) ?(len(a.nodes) == 1) !(self.ins(a.nodes[0])) <thing i>:node => '('+node+',)'
            | <anything>:a ?(a.__class__ == Tuple) ?(len(a.nodes) == 0) => '()'
 
 # Matches a positive operator
-unaryadd :i ::= <anything>:a ?(a.__class__ == UnaryAdd) => '(+'+a.expr.rec(i)+')'
+unaryadd :i ::= <anything>:a ?(a.__class__ == UnaryAdd) !(self.ins(a.expr)) <thing i>:expr => '(+'+expr+')'
 
 # Matches a negative operator
-unarysub :i ::= <anything>:a ?(a.__class__ == UnarySub) => '(-'+a.expr.rec(i)+')'
+unarysub :i ::= <anything>:a ?(a.__class__ == UnarySub) !(self.ins(a.expr)) <thing i>:expr => '(-'+expr+')'
 
 # Matches a while loop
-while :i ::= <anything>:a ?(a.__class__ == While) ?(a.else_ is None) => 'while '+a.test.rec(i)+\""":\n\"""+a.body.rec(i+1)
-           | <anything>:a ?(a.__class__ == While) ?(not a.else_ is None) => 'while '+a.test.rec(i)+\""":\n\"""+a.body.rec(i+1)+\"""\n\"""+(i*'\t')+\"""else:\n\"""+a.else_.rec(i+1)
+while :i ::= <anything>:a ?(a.__class__ == While) ?(a.else_ is None) !(self.ins(a.test)) <thing i>:test !(self.ins(a.body)) <thing i+1>:body => 'while '+test+\""":\n\"""+body
+           | <anything>:a ?(a.__class__ == While) ?(not a.else_ is None) !(self.ins(a.test)) <thing i>:test !(self.ins(a.body)) <thing i+1>:body !(self.ins(a.else_)) <thing i+1>:else_ => 'while '+test+\""":\n\"""+body+\"""\n\"""+(i*'\t')+\"""else:\n\"""+else_
 
 # Matches object-style try/catch
-with :i ::= <anything>:a ?(a.__class__ == With) ?(a.vars is not None) => 'with '+a.expr.rec(i)+' as '+a.vars.rec(i)+\""":\n\"""+('\t'*(i+1))+a.body.rec(i+1)
-          | <anything>:a ?(a.__class__ == With) => 'with '+a.expr.rec(i)+\""":\n\"""+('\t'*(i+1))+a.body.rec(i+1)
+with :i ::= <anything>:a ?(a.__class__ == With) ?(a.vars is not None) !(self.ins(a.expr)) <thing i>:expr !(self.ins(a.vars)) <thing i>:vars !(self.ins(a.body)) <thing i+1>:body => 'with '+expr+' as '+vars+\""":\n\"""+('\t'*(i+1))+body
+          | <anything>:a ?(a.__class__ == With) !(self.ins(a.expr)) <thing i>:expr !(self.ins(a.body)) <thing i+1>:body => 'with '+expr+\""":\n\"""+('\t'*(i+1))+body
 
 # Matches generator values
-yield :i ::= <anything>:a ?(a.__class__ == Yield) => 'yield '+a.value.rec(i)
+yield :i ::= <anything>:a ?(a.__class__ == Yield) !(self.ins(a.value)) <thing i>:value => 'yield '+value
 
+# Matches exactly n things
+n_things :n :i ::= ?(n == 0) => []
+                 | ?(n == 1) <thing i>:t => [t]
+                 | ?(n > 1) <thing i>:t <n_things n-1 i>:ts => [t]+ts
+
+# Calling functions in list recursions can have a habit of performing one extra
+# call. This ensures that no cruft gets left on the input stream after calling
+# self.ins inside a list comprehension. It always matches.
+cleanup ::= <anything>:a ?(a == [None])
+          | ?(1 == 1)
+
+none_list :a ::= ?(a is None) => []
+               | ?(a is not None) => a
 """
 
 # These are the objects which will be available to the matcher
@@ -532,8 +600,25 @@ args['pick_quotes'] = pick_quotes
 stripped = strip_comments(grammar_def)
 grammar = OM.makeGrammar(stripped, args)
 
+# Patch the grammar for recursion
+def ins(self, val):
+	"""This is a very dangerous function! We monkey-patch PyMeta grammars with
+	this so that we can insert an arbitrary value as the next input. This allows
+	us to recurse without having to	instantiate another matcher (we effectively
+	use the existing input as a stack). Beware of leaving cruft behind on the
+	input!"""
+	# Insert the value
+	self.input.data.insert(self.input.position, val)
+	# Throw away any cached input
+	self.input.tl = None
+	self.input.memo = {}
+	# Ensure success, if needed
+	return True
+
+grammar.ins = ins
+
 # Give every AST node access to the grammar
-Node.grammar = grammar
+#Node.grammar = grammar
 
 def parse(code):
 	"""This parses the given code using Python's compiler module, but
@@ -545,4 +630,10 @@ del stripped
 del args
 
 if __name__ == '__main__':
-		print parse('1 + 2').rec(0)
+		matcher = grammar([parse('1+2')])
+		try:
+			result,err = matcher.apply('python',0)
+			print result
+		except:
+			print ':('
+		pass

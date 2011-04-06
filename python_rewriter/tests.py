@@ -28,17 +28,20 @@ if __name__ != '__main__' or len(sys.argv) == 1:
 			if self.code == '':
 				self.message = self.message + 'No test set'
 				return
+			
 			try:
+				tree = self.get_tree()
+			except SyntaxError:
+				self.message = self.message + """Error in test.\n""" + self.code
+				raise EscapeException()
+			try:
+				g_tree = grammar([tree])
 				try:
-					tree = self.get_tree()
-				except SyntaxError:
-					self.message = self.message + """Error in test.\n""" + self.code
-					raise EscapeException()
-				try:
-					generated = tree.rec(0)
-				except ParseError:
-					self.message = self.message + """Error in grammar.\n""" + self.code + """\n\n""" + tree
-					raise EscapeException()
+					generated,err = g_tree.apply('thing',0)
+				except ParseError, e:
+					if (e.error is not None and len(e.error) > 0):
+						self.message = self.message + """Error in grammar.\n""" + self.code + """\n\n""" + str(tree)
+						raise EscapeException()
 				try:
 					assert str(compiler.parse(generated)) == str(tree)
 				except AssertionError:
@@ -51,6 +54,7 @@ if __name__ != '__main__' or len(sys.argv) == 1:
 				self.result = True
 			except EscapeException:
 				pass
+			
 	
 	tests = [\
 		Test('Addition','1+2', ['Statement', 'Constant']), \
@@ -326,7 +330,7 @@ with open('a', 'r') as f:
 		Test('Yield', 'yield x', ['Statement']) \
 	]
 
-def do_file(testfile, name, do_print=False, notfile=None, workfile=None):
+def do_file(grammar, testfile, name, do_print=False, notfile=None, workfile=None):
 	if notfile is None: keepnot = False
 	else: keepnot = True
 	if workfile is None: keepwork = False
@@ -354,7 +358,7 @@ def do_file(testfile, name, do_print=False, notfile=None, workfile=None):
 			
 	# Attempt to generate code from the AST
 	try:
-		code = tree.rec(0)
+		code = grammar(tree).apply('thing',0)
 	except Exception, e:
 		# If we fail then make a note of it as appropriate
 		if keepnot:
@@ -569,4 +573,4 @@ else:
 		testfile = open(name, 'r')
 		
 		# Now test the contents
-		do_file(testfile, name, do_print, notfile, workfile)
+		do_file(g, testfile, name, do_print, notfile, workfile)
