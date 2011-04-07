@@ -111,6 +111,15 @@ def set_defaults(argnames, defaults):
 	# And we're done
 	return ','.join(to_return)
 
+def make_list(foo):
+	"""Returns the argument if it has a length, otherwise returns an empty list.
+	"""
+	try:
+		len(foo)
+		return foo
+	except:
+		return []
+
 # This is the grammar, defined in OMeta, which does our translation
 grammar_def = """#
 # "python" is used to output Python code from an AST node. The number given
@@ -212,7 +221,7 @@ add :i ::= <anything>:a ?(a.__class__ == Add) !(self.ins(a.left)) <thing i>:left
 # Matches a chain of logical AND operations on booleans
 # NOTE: We must add a.nodes on to the stack in reverse order, then pop them back
 # in the right order with n_things
-and :i ::= <anything>:a ?(a.__class__ == And) !([self.ins(n) for n in a.nodes[::-1]]) <n_things len(a.nodes) i>:ns => '('+') and ('.join(ns)+')'
+and :i ::= <anything>:a ?(a.__class__ == And) <none_list a.nodes>:nodelist !([self.ins(n) for n in nodelist[::-1]]) <n_things len(nodelist) i>:ns => '('+') and ('.join(ns)+')'
 
 # Matches the binding of an object to a member name of another object
 assattr :i ::= <anything>:a ?(a.__class__ == AssAttr) !(self.ins(a.expr)) <thing i>:e => e+'.'+a.attrname
@@ -220,7 +229,7 @@ assattr :i ::= <anything>:a ?(a.__class__ == AssAttr) !(self.ins(a.expr)) <thing
 # Matches the binding of a list of items
 # NOTE: We must add a.nodes on to the stack in reverse order, then pop them back
 # in the right order with n_things
-asslist :i ::= <anything>:a ?(a.__class__ == AssList) !([self.ins(n) for n in a.nodes[::-1]]) <n_things len(a.nodes) i>:ns => '[' + ', '.join(ns) + ']'
+asslist :i ::= <anything>:a ?(a.__class__ == AssList) <none_list a.nodes>:nodelist !([self.ins(n) for n in nodelist[::-1]]) <n_things len(nodelist) i>:ns => '[' + ', '.join(ns) + ']'
 
 # AssName assigns to a variable name
 # We want the variable name
@@ -229,7 +238,7 @@ assname :i ::= <anything>:a ?(a.__class__ == AssName) => a.name
 # Matches the assignment of multiple names to multiple objects
 # NOTE: We must add a.nodes on to the stack in reverse order, then pop them back
 # in the right order with n_things
-asstuple :i ::= <anything>:a ?(a.__class__ == AssTuple) !([self.ins(n) for n in a.nodes[::-1]]) <n_things len(a.nodes) i>:ns => '(' + ', '.join(ns) + ')'
+asstuple :i ::= <anything>:a ?(a.__class__ == AssTuple) <none_list a.nodes>:nodelist !([self.ins(n) for n in nodelist[::-1]]) <n_things len(nodelist) i>:ns => '(' + ', '.join(ns) + ')'
 
 # Matches a debug test
 assert :i ::= <anything>:a ?(a.__class__ == Assert) ?(a.fail is None) !(self.ins(a.test)) <thing i>:test => 'assert '+test
@@ -239,7 +248,7 @@ assert :i ::= <anything>:a ?(a.__class__ == Assert) ?(a.fail is None) !(self.ins
 # We want the list to be joined by equals signs and followed by expr
 # NOTE: We must add a.nodes on to the stack in reverse order, then pop them back
 # in the right order with n_things
-assign :i ::= <anything>:a ?(a.__class__ == Assign) !([self.ins(n) for n in a.nodes[::-1]]) <n_things len(a.nodes) i>:ns !(self.ins(a.expr)) <thing i>:expr => ' = '.join(ns) + ' = ' + expr
+assign :i ::= <anything>:a ?(a.__class__ == Assign) <none_list a.nodes>:nodelist !([self.ins(n) for n in nodelist[::-1]]) <n_things len(nodelist) i>:ns !(self.ins(a.expr)) <thing i>:expr => ' = '.join(ns) + ' = ' + expr
 
 # Matches an in-place change to something
 augassign :i ::= <anything>:a ?(a.__class__ == AugAssign) !(self.ins(a.node)) <thing i>:node !(self.ins(a.expr)) <thing i>:expr => node + a.op + expr
@@ -250,17 +259,17 @@ backquote :i ::= <anything>:a ?(a.__class__ == Backquote) !(self.ins(a.expr)) <t
 # Matches bitwise AND
 # NOTE: We must add a.nodes on to the stack in reverse order, then pop them back
 # in the right order with n_things
-bitand :i ::= <anything>:a ?(a.__class__ == Bitand) !([self.ins(n) for n in a.nodes[::-1]]) <n_things len(a.nodes) i>:ns => '(('+')&('.join(ns)+'))'
+bitand :i ::= <anything>:a ?(a.__class__ == Bitand) <none_list a.nodes>:nodelist !([self.ins(n) for n in nodelist[::-1]]) <n_things len(nodelist) i>:ns => '(('+')&('.join(ns)+'))'
 
 # Matches bitwise OR
 # NOTE: We must add a.nodes on to the stack in reverse order, then pop them back
 # in the right order with n_things
-bitor :i ::= <anything>:a ?(a.__class__ == Bitor) !([self.ins(n) for n in a.nodes[::-1]]) <n_things len(a.nodes) i>:ns => '(('+')|('.join(ns)+'))'
+bitor :i ::= <anything>:a ?(a.__class__ == Bitor) <none_list a.nodes>:nodelist !([self.ins(n) for n in nodelist[::-1]]) <n_things len(nodelist) i>:ns => '(('+')|('.join(ns)+'))'
 
 # Matches bitwise XOR
 # NOTE: We must add a.nodes on to the stack in reverse order, then pop them back
 # in the right order with n_things
-bitxor :i ::= <anything>:a ?(a.__class__ == Bitxor) !([self.ins(n) for n in a.nodes[::-1]]) <n_things len(a.nodes) i>:ns => '(('+')^('.join(ns)+'))'
+bitxor :i ::= <anything>:a ?(a.__class__ == Bitxor) <none_list a.nodes>:nodelist !([self.ins(n) for n in nodelist[::-1]]) <n_things len(nodelist) i>:ns => '(('+')^('.join(ns)+'))'
 
 # Matches an escape from a loop
 break :i ::= <anything>:a ?(a.__class__ == Break) => 'break'
@@ -268,7 +277,7 @@ break :i ::= <anything>:a ?(a.__class__ == Break) => 'break'
 # Matches the sending of a message to an object
 # NOTE: We must add a.args on to the stack in reverse order, then pop them back
 # in the right order with n_things
-callfunc :i ::= <anything>:a ?(a.__class__ == CallFunc) <callfunc_star a.star_args i>:star <callfunc_dstar a.dstar_args i>:dstar !(self.ins(a.node)) <thing i>:n !([self.ins(argument) for argument in a.args[::-1]]) <n_things len(a.args) i>:args => n+'('+', '.join(args+star+dstar)+')'
+callfunc :i ::= <anything>:a ?(a.__class__ == CallFunc) <callfunc_star a.star_args i>:star <callfunc_dstar a.dstar_args i>:dstar !(self.ins(a.node)) <thing i>:n <none_list a.args>:arglist !([self.ins(argument) for argument in arglist[::-1]]) <n_things len(arglist) i>:args => n+'('+', '.join(args+star+dstar)+')'
 
 callfunc_star :s :i ::= ?(s is None) => []
                       | !(self.ins(s)) <thing i>:star => ['*'+star]
@@ -284,8 +293,8 @@ class_doc :d :i ::= ?(d is None) => ''
                   | ?(d is not None) => ('\t'*i)+pick_quotes(d)+\"""\n\"""
 
 # Formats a class's superclasses for use in <class>
-class_bases :b :i ::= ?(len(b) == 0) => ''
-                    | ?(len(b) > 0) !([self.ins(base) for base in b[::-1]]) <n_things len(b) i>:bases => '(' + ', '.join(bases) + ')'
+class_bases :b :i ::= <none_list b>:blist ?(len(blist) == 0) => ''
+                    | <none_list b>:blist ?(len(blist) > 0) !([self.ins(base) for base in blist[::-1]]) <n_things len(blist) i>:bases => '(' + ', '.join(bases) + ')'
 
 # Formats a class's decorators for use in <class>
 class_decorators :d :i ::= <none_list d>:dlist ?(len(dlist) == 0) => ''
@@ -293,14 +302,15 @@ class_decorators :d :i ::= <none_list d>:dlist ?(len(dlist) == 0) => ''
 
 # Compare groups together comparisons (==, <, >, etc.)
 # We want the left-hand expression followed by each operation joined with its right-hand-side
-compare :i ::= <anything>:a ?(a.__class__ == Compare) !(self.ins(a.expr)) <thing i>:expr <comparison_choices a.ops>:ops <comparison_rhss a.ops>:rhss => '(' + expr + ' ' + ' '.join([' '.join(pair) for pair in zip(ops,rhss)]) + ')'
+compare :i ::= <anything>:a ?(a.__class__ == Compare) !(self.ins(a.expr)) <thing i>:expr <comparison_ops a.ops i>:ops => '(' + expr + ' ' + ' '.join(ops) + ')'
 
 # Makes a list of comparison types (==, <=, etc.) for use in <compare>
-comparison_choices :o ::= ?(len(o) == 0) => []
-                        | ?(len(o) > 0) => [comp[0] for comp in o]
+comparison_ops :o :i ::= <none_list o>:olist ?(len(olist) == 0) => []
+                       | <none_list o>:olist ?(len(olist) == 1) !(self.ins(olist[0][1])) <thing i>:rhs => [olist[0][0]+' '+rhs]
+                       | <none_list o>:olist ?(len(olist) > 1) <comparison_ops olist[0] i>:s <comparison_ops olist[1:] i>:xs => x+xs
 
 # Makes a list of the right-hand-side of comparisons for use in <compare>
-comparison_rhss :o :i ::= !([self.ins(c[1]) for c in o[::-1]]) <n_things len(o) i>:rhss => rhss
+comparison_rhss :o :i ::= <none_list o>:olist !([self.ins(c[1]) for c in olist[::-1]]) <n_things len(olist) i>:rhss => rhss
 
 # Const wraps a constant value
 # We want strings in quotes and numbers as strings
@@ -318,20 +328,20 @@ const :i ::= <anything>:a ?(a.__class__ == Const) ?(a.value is None) => ''
 continue :i ::= <anything>:a ?(a.__class__ == Continue) => 'continue'
 
 # Matches transformations applied to functions and classes
-decorators :i ::= <anything>:a ?(a.__class__ == Decorators) !(a.nodes is not None and [self.ins(n) for n in a.nodes[::-1]]) <n_things len(a.nodes) i>:decs => '@'+((\"""\n\"""+'\t'*i + '@').join(decs))
+decorators :i ::= <anything>:a ?(a.__class__ == Decorators) <none_list a.nodes>:nodelist !(a.nodes is not None and [self.ins(n) for n in nodelist[::-1]]) <n_things len(nodelist) i>:decs => '@'+((\"""\n\"""+'\t'*i + '@').join(decs))
 
 # Matches any nodes which represent deletions
-delete :i ::= <anything>:a ?(a.__class__ == AssTuple) ?(is_del(a)) !([self.ins(n) for n in a.nodes[::-1]]) <n_things len(a.nodes) i>:dels => 'del('+', '.join([n[4:] for n in dels])+')'
+delete :i ::= <anything>:a ?(a.__class__ == AssTuple) ?(is_del(a)) <none_list a.nodes>:nodelist !([self.ins(n) for n in nodelist[::-1]]) <n_things len(nodelist) i>:dels => 'del('+', '.join([n[4:] for n in dels])+')'
             | <anything>:a ?(a.__class__ == AssName) ?(a.flags == 'OP_DELETE') => 'del '+a.name
             | <anything>:a ?(a.__class__ == AssAttr) ?(a.flags == 'OP_DELETE') !(self.ins(a.expr)) <thing i>:expr => 'del '+expr+'.'+a.attrname
             | <anything>:a ?(a.__class__ == Slice) ?(a.flags == 'OP_DELETE') ?(a.upper is None) ?(a.lower is None) !(self.ins(a.expr)) <thing i>:expr => 'del '+expr+'[:]'
             | <anything>:a ?(a.__class__ == Slice) ?(a.flags == 'OP_DELETE') ?(a.upper is None) ?(not a.lower is None) !(self.ins(a.expr)) <thing i>:expr !(self.ins(a.lower)) <thing i>:lower => 'del '+expr+'['+lower+':]'
             | <anything>:a ?(a.__class__ == Slice) ?(a.flags == 'OP_DELETE') ?(not a.upper is None) ?(a.lower is None) !(self.ins(a.expr)) <thing i>:expr !(self.ins(a.upper)) <thing i>:upper => 'del '+expr+'[:'+upper+']'
             | <anything>:a ?(a.__class__ == Slice) ?(a.flags == 'OP_DELETE') ?(not a.upper is None) ?(not a.lower is None) !(self.ins(a.expr)) <thing i>:expr !(self.ins(a.lower)) <thing i>:lower !(self.ins(a.upper)) <thing i>:upper => 'del '+expr+'['+lower+':'+upper+']'
-            | <anything>:a ?(a.__class__ == Subscript) ?(a.flags == 'OP_DELETE') !(self.ins(a.expr)) <thing i>:expr !([self.ins(s) for s in a.subs[::-1]]) <n_things len(a.subs) i>:subs => 'del '+expr+'['+', '.join(subs)+']'
+            | <anything>:a ?(a.__class__ == Subscript) ?(a.flags == 'OP_DELETE') !(self.ins(a.expr)) <thing i>:expr <none_list a.subs>:sublist !([self.ins(s) for s in sublist[::-1]]) <n_things len(sublist) i>:subs => 'del '+expr+'['+', '.join(subs)+']'
 
 # Matches unordered key/value collections
-dict :i ::= <anything>:a ?(a.__class__ == Dict) !([self.ins(o[0]) for o in a.items[::-1]]) <n_things len(a.items) i>:keys !([self.ins(o[1]) for o in a.items[::-1]]) <n_things len(a.items) i>:values => '{'+(', '.join([':'.join(pair) for pair in zip(keys,values)]))+'}'
+dict :i ::= <anything>:a ?(a.__class__ == Dict) <none_list a.items>:itemlist !([self.ins(o[0]) for o in itemlist[::-1]]) <n_things len(itemlist) i>:keys !([self.ins(o[1]) for o in itemlist[::-1]]) <n_things len(itemlist) i>:values => '{'+(', '.join([':'.join(pair) for pair in zip(keys,values)]))+'}'
 
 # Matches statements where a value is not bound to a name
 discard :i ::= <anything>:a ?(a.__class__ == Discard) !(self.ins(a.expr)) <thing i>:expr => expr
@@ -379,10 +389,10 @@ from :i ::= <anything>:a ?(a.__class__ == From) => 'from '+(a.level*'.')+a.modna
 # Using [-2::-1] and [-3::-1] reverses & chops off 1 or 2 args as needed
 # tuple_args recursively turns nested arguments into appropriate strings
 
-function :i ::= <anything>:a ?(a.__class__ == Function) <function_decorators a.decorators i>:decs ?(a.varargs is None) ?(a.kwargs is None) <function_doc a.doc i+1>:doc !([self.ins(d) for d in a.defaults[::-1]]) <n_things len(a.defaults) i>:defaults !(self.ins(a.code)) <thing i+1>:code => decs+'def '+a.name+'('+', '.join(tuple_args(a.argnames)[::-1][len(a.defaults):][::-1]+([a.argnames[::-1][x]+'='+y for x,y in enumerate(defaults[::-1])][::-1]))+\"""):\"""+doc+code
-              | <anything>:a ?(a.__class__ == Function) <function_decorators a.decorators i>:decs ?(a.varargs is None) ?(not a.kwargs is None) <function_doc a.doc i+1>:doc !([self.ins(d) for d in a.defaults[::-1]]) <n_things len(a.defaults) i>:defaults !(self.ins(a.code)) <thing i+1>:code => 'def '+a.name+'('+', '.join(tuple_args(a.argnames)[::-1][len(a.defaults)+1:][::-1]+([a.argnames[-2::-1][x]+'='+y for x,y in enumerate(defaults[::-1])][::-1])+['**'+a.argnames[-1]])+\"""):\"""+code
-              | <anything>:a ?(a.__class__ == Function) <function_decorators a.decorators i>:decs ?(not a.varargs is None) ?(a.kwargs is None) <function_doc a.doc i+1>:doc !([self.ins(d) for d in a.defaults[::-1]]) <n_things len(a.defaults) i>:defaults !(self.ins(a.code)) <thing i+1>:code => 'def '+a.name+'('+', '.join(tuple_args(a.argnames)[::-1][len(a.defaults)+1:][::-1]+([a.argnames[-2::-1][x]+'='+y for x,y in enumerate(defaults[::-1])][::-1])+['*'+a.argnames[-1]])+\"""):\"""+code            
-              | <anything>:a ?(a.__class__ == Function) <function_decorators a.decorators i>:decs ?(not a.varargs is None) ?(not a.kwargs is None) <function_doc a.doc i+1>:doc !([self.ins(d) for d in a.defaults[::-1]]) <n_things len(a.defaults) i>:defaults !(self.ins(a.code)) <thing i+1>:code => 'def '+a.name+'('+', '.join(tuple_args(a.argnames)[::-1][len(a.defaults)+2:][::-1]+([a.argnames[-3::-1][x]+'='+y for x,y in enumerate(defaults[::-1])][::-1])+['*'+a.argnames[-2], '**'+a.argnames[-1]])+\"""):\"""+code
+function :i ::= <anything>:a ?(a.__class__ == Function) <function_decorators a.decorators i>:decs ?(a.varargs is None) ?(a.kwargs is None) <function_doc a.doc i+1>:doc <none_list a.defaults>:deflist !([self.ins(d) for d in deflist[::-1]]) <n_things len(deflist) i>:defaults !(self.ins(a.code)) <thing i+1>:code => decs+'def '+a.name+'('+', '.join(tuple_args(a.argnames)[::-1][len(a.defaults):][::-1]+([a.argnames[::-1][x]+'='+y for x,y in enumerate(defaults[::-1])][::-1]))+\"""):\"""+doc+code
+              | <anything>:a ?(a.__class__ == Function) <function_decorators a.decorators i>:decs ?(a.varargs is None) ?(not a.kwargs is None) <function_doc a.doc i+1>:doc <none_list a.defaults>:deflist !([self.ins(d) for d in deflist[::-1]]) <n_things len(deflist) i>:defaults !(self.ins(a.code)) <thing i+1>:code => 'def '+a.name+'('+', '.join(tuple_args(a.argnames)[::-1][len(a.defaults)+1:][::-1]+([a.argnames[-2::-1][x]+'='+y for x,y in enumerate(defaults[::-1])][::-1])+['**'+a.argnames[-1]])+\"""):\"""+code
+              | <anything>:a ?(a.__class__ == Function) <function_decorators a.decorators i>:decs ?(not a.varargs is None) ?(a.kwargs is None) <function_doc a.doc i+1>:doc <none_list a.defaults>:deflist !([self.ins(d) for d in deflist[::-1]]) <n_things len(deflist) i>:defaults !(self.ins(a.code)) <thing i+1>:code => 'def '+a.name+'('+', '.join(tuple_args(a.argnames)[::-1][len(a.defaults)+1:][::-1]+([a.argnames[-2::-1][x]+'='+y for x,y in enumerate(defaults[::-1])][::-1])+['*'+a.argnames[-1]])+\"""):\"""+code            
+              | <anything>:a ?(a.__class__ == Function) <function_decorators a.decorators i>:decs ?(not a.varargs is None) ?(not a.kwargs is None) <function_doc a.doc i+1>:doc <none_list a.defaults>:deflist !([self.ins(d) for d in deflist[::-1]]) <n_things len(deflist) i>:defaults !(self.ins(a.code)) <thing i+1>:code => 'def '+a.name+'('+', '.join(tuple_args(a.argnames)[::-1][len(a.defaults)+2:][::-1]+([a.argnames[-3::-1][x]+'='+y for x,y in enumerate(defaults[::-1])][::-1])+['*'+a.argnames[-2], '**'+a.argnames[-1]])+\"""):\"""+code
 
 # Formats a function's decorators for use in <function>
 function_decorators :d :i ::= ?(d is None) => ''
@@ -395,13 +405,13 @@ function_doc :d :i ::= ?(d is None) => ''
 genexpr :i ::= <anything>:a ?(a.__class__ == GenExpr) !(self.ins(a.code)) <thing i>:code => '('+code+')'
 
 # Matches the loops of a list-generating expression
-genexprfor :i ::= <anything>:a ?(a.__class__ == GenExprFor) !(self.ins(a.assign)) <thing i>:assign !(self.ins(a.iter)) <thing i>:iter !([self.ins(z) for z in a.ifs[::-1]]) <n_things len(a.ifs) i>:ifs => 'for '+assign+' in '+iter+' '.join(ifs)
+genexprfor :i ::= <anything>:a ?(a.__class__ == GenExprFor) !(self.ins(a.assign)) <thing i>:assign !(self.ins(a.iter)) <thing i>:iter <none_list a.ifs>:iflist !([self.ins(z) for z in iflist[::-1]]) <n_things len(iflist) i>:ifs => 'for '+assign+' in '+iter+' '.join(ifs)
 
 # Matches any conditions on members in a list-generating expression
 genexprif :i ::= <anything>:a ?(a.__class__ == GenExprIf) !(self.ins(a.test)) <thing i>:test => ' if '+test
 
 # Matches the body of a list-generating expression
-genexprinner :i ::= <anything>:a ?(a.__class__ == GenExprInner) !([self.ins(n) for n in a.quals[::-1]]) <n_things len(a.quals) i>:quals !(self.ins(a.expr)) <thing i>:expr => expr+' '+' '.join(quals)
+genexprinner :i ::= <anything>:a ?(a.__class__ == GenExprInner) <none_list a.quals>:quallist !([self.ins(n) for n in quallist[::-1]]) <n_things len(quallist) i>:quals !(self.ins(a.expr)) <thing i>:expr => expr+' '+' '.join(quals)
 
 # Matches the retrieval of an object's attribute
 getattr :i ::= <anything>:a ?(a.__class__ == Getattr) !(self.ins(a.expr)) <thing i>:expr !(self.ins(a.attrname)) <getattr_name i>:attrname => expr+'.'+attrname
@@ -414,8 +424,8 @@ getattr_name :i ::= <thing i>:n => n
 global :i ::= <anything>:a ?(a.__class__ == Global) => 'global '+', '.join(a.names)
 
 # Matches if, elif and else conditions
-if :i ::= <anything>:a ?(a.__class__ == If) ?(len(a.tests) == 1) !(self.ins(a.tests[0][0])) <thing i>:test !(self.ins(a.tests[0][1])) <thing i+1>:code <if_else a.else_ i+1>:else_ => 'if '+test+\""":\n\"""+code+\"""\n\"""+(i*'\t')+else_+\"""\n\"""
-        | <anything>:a ?(a.__class__ == If) ?(len(a.tests) > 1) !(self.ins(a.tests[0][0])) <thing i>:test !(self.ins(a.tests[0][1])) <thing i+1>:code <if_else a.else_ i+1>:else_ !([self.ins(n[0]) for n in a.tests[1::-1]]) <n_things len(a.tests)-1 i>:ifs !([self.ins(n[1]) for n in a.tests[1::-1]]) <n_things len(a.tests)-1 i+1>:thens => 'if '+test+\""":\n\"""+code+''.join([\"""\n\"""+('\t'*i)+'elif '+(\""":\n\""".join(pair)) for pair in zip(ifs,thens)])+\"""\n\"""+('\t'*i)+else_+\"""\n\"""
+if :i ::= <anything>:a ?(a.__class__ == If) <none_list a.tests>:testlist ?(len(testlist) == 1) !(self.ins(testlist[0][0])) <thing i>:test !(self.ins(testlist[0][1])) <thing i+1>:code <if_else a.else_ i+1>:else_ => 'if '+test+\""":\n\"""+code+\"""\n\"""+(i*'\t')+else_+\"""\n\"""
+        | <anything>:a ?(a.__class__ == If) <none_list a.tests>:testlist ?(len(testlist) > 1) !(self.ins(testlist[0][0])) <thing i>:test !(self.ins(testlist[0][1])) <thing i+1>:code <if_else a.else_ i+1>:else_ !([self.ins(n[0]) for n in reversed(testlist[1:])]) <n_things len(testlist)-1 i>:ifs !([self.ins(n[1]) for n in reversed(testlist[1:])]) <n_things len(testlist)-1 i+1>:thens => 'if '+test+\""":\n\"""+code+''.join([\"""\n\"""+('\t'*i)+'elif '+(\""":\n\""".join(pair)) for pair in zip(ifs,thens)])+\"""\n\"""+('\t'*i)+else_+\"""\n\"""
 
 # Formats an else statement for use in <if>
 if_else :e :i ::= ?(e is None) => ''
@@ -433,19 +443,19 @@ keyword :i ::= <anything>:a ?(a.__class__ == Keyword) !(self.ins(a.expr)) <thing
 
 # Matches anonymous functions
 # FIXME: What do the flags represent?
-lambda :i ::= <anything>:a ?(a.__class__ == Lambda) !([self.ins(n) for n in a.defaults[::-1]]) <n_things len(a.defaults) i>:defaults !(self.ins(a.code)) <thing i>:code => 'lambda '+set_defaults(a.argnames, defaults)+': '+code
+lambda :i ::= <anything>:a ?(a.__class__ == Lambda) <none_list a.defaults>:deflist !([self.ins(n) for n in deflist[::-1]]) <n_things len(deflist) i>:defaults !(self.ins(a.code)) <thing i>:code => 'lambda '+set_defaults(a.argnames, defaults)+': '+code
 
 # Matches leftwards bit shifts
 leftshift :i ::= <anything>:a ?(a.__class__ == LeftShift) !(self.ins(a.left)) <thing i>:left !(self.ins(a.right)) <thing i>:right => '(('+left+')<<('+right+'))'
 
 # Matches a mutable, ordered collection 
-list :i ::= <anything>:a ?(a.__class__ == List) !([self.ins(n) for n in a.nodes[::-1]]) <n_things i>:nodes => '['+', '.join(nodes)+']'
+list :i ::= <anything>:a ?(a.__class__ == List) <none_list a.nodes>:nodelist !([self.ins(n) for n in nodelist[::-1]]) <n_things len(nodelist) i>:nodes => '['+', '.join(nodes)+']'
 
 # Matches lists-creating expressions
-listcomp :i ::= <anything>:a ?(a.__class__ == ListComp) !(self.ins(a.expr)) <thing i>:expr !([self.ins(n) for n in a.quals[::-1]]) <n_things len(a.quals) i>:quals => '['+expr+' '.join(quals)+']'
+listcomp :i ::= <anything>:a ?(a.__class__ == ListComp) !(self.ins(a.expr)) <thing i>:expr <none_list a.quals>:quallist !([self.ins(n) for n in quallist[::-1]]) <n_things len(quallist) i>:quals => '['+expr+' '.join(quals)+']'
 
 # Matches transformations applied to existing lists in generating expressions
-listcompfor :i ::= <anything>:a ?(a.__class__ == ListCompFor) !(self.ins(a.assign)) <thing i>:assign !(self.ins(a.list)) <thing i>:list_ <none_list a.ifs>:iflist !([self.ins(n) for n in iflist[::-1]]) <n_things len(iflist) i>:ifs => ' for '+assign+' in '+list_+''.join(iflist)
+listcompfor :i ::= <anything>:a ?(a.__class__ == ListCompFor) !(self.ins(a.assign)) <thing i>:assign !(self.ins(a.list)) <thing i>:list_ <none_list a.ifs>:iflist !([self.ins(n) for n in iflist[::-1]]) <n_things len(iflist) i>:ifs => ' for '+assign+' in '+list_+''.join(ifs)
 
 # Matches selection conditions in list-generating expressions
 listcompif :i ::= <anything>:a ?(a.__class__ == ListCompIf) !(self.ins(a.test)) <thing i>:test => ' if '+test
@@ -469,7 +479,7 @@ name :i ::= <anything>:a ?(a.__class__ == Name) => a.name
 not :i ::= <anything>:a ?(a.__class__ == Not) !(self.ins(a.expr)) <thing i>:expr => '(not ('+expr+'))'
 
 # Matches a chain of logical OR operations on booleans
-or :i ::= <anything>:a ?(a.__class__ == Or) !([self.ins(n) for n in a.nodes[::-1]]) <n_things i>:nodes => '(('+') or ('.join(nodes)+'))'
+or :i ::= <anything>:a ?(a.__class__ == Or) <none_list a.nodes>:nodelist !([self.ins(n) for n in nodelist[::-1]]) <n_things len(nodelist) i>:nodes => '(('+') or ('.join(nodes)+'))'
 
 # Matches a placeholder where indentation requires a code block but no
 # code is needed
@@ -479,12 +489,12 @@ pass :i ::= <anything>:a ?(a.__class__ == Pass) => 'pass'
 power :i ::= <anything>:a ?(a.__class__ == Power) !(self.ins(a.left)) <thing i>:left !(self.ins(a.right)) <thing i>:right => '(('+left+')**('+right+'))'
 
 # Matches outputting text (without a newline)
-print :i ::= <anything>:a ?(a.__class__ == Print) ?(a.dest is None) !([self.ins(n) for n in a.nodes[::-1]]) <n_things len(a.nodes) i>:nodes => 'print '+', '.join(nodes)+','
-           | <anything>:a ?(a.__class__ == Print) !(a.dest) <thing i>:dest !([self.ins(n) for n in a.nodes[::-1]]) <n_things len(a.nodes) i>:nodes => 'print >> '+dest+', '+', '.join(nodes)+','
+print :i ::= <anything>:a ?(a.__class__ == Print) ?(a.dest is None) <none_list a.nodes>:nodelist !([self.ins(n) for n in nodelist[::-1]]) <n_things len(nodelist) i>:nodes => 'print '+', '.join(nodes)+','
+           | <anything>:a ?(a.__class__ == Print) !(self.ins(a.dest)) <thing i>:dest <none_list a.nodes>:nodelist !([self.ins(n) for n in nodelist[::-1]]) <n_things len(nodelist) i>:nodes => 'print >> '+dest+', '+', '.join(nodes)+','
 
 # Matches outputting text with a newline
-printnl :i ::= <anything>:a ?(a.__class__ == Printnl) ?(a.dest is None) !([self.ins(n) for n in a.nodes[::-1]]) <n_things len(a.nodes) i>:nodes => 'print '+', '.join(nodes)
-             | <anything>:a ?(a.__class__ == Printnl) !(a.dest) <thing i>:dest !([self.ins(n) for n in a.nodes[::-1]]) <n_things len(a.nodes) i>:nodes => 'print >> '+dest+', '+', '.join(nodes)
+printnl :i ::= <anything>:a ?(a.__class__ == Printnl) ?(a.dest is None) <none_list a.nodes>:nodelist !([self.ins(n) for n in nodelist[::-1]]) <n_things len(nodelist) i>:nodes => 'print '+', '.join(nodes)
+             | <anything>:a ?(a.__class__ == Printnl) !(self.ins(a.dest)) <thing i>:dest <none_list a.nodes>:nodelist !([self.ins(n) for n in nodelist[::-1]]) <n_things len(nodelist) i>:nodes => 'print >> '+dest+', '+', '.join(nodes)
 
 # Matches error passing
 raise :i ::= <anything>:a ?(a.__class__ == Raise) <raise_exprs a.expr1 a.expr2 a.expr3 i>:exprs => 'raise '+exprs
@@ -510,7 +520,7 @@ rightshift :i ::= <anything>:a ?(a.__class__ == RightShift) !(self.ins(a.left)) 
 # Matches a subset of an ordered sequence
 # We want the upper and lower boundaries if present, subscripting the
 # sequence expression with them, separated by a colon (blank for None)
-slice :i ::= <anything>:a ?(a.__class__ == Slice) !(self.ins(a.expr)) <thing i>:expr <slice_upper a.upper i>:upper <slice_lower a.lower i>:lower => expr+'['+upper+':'+lower+']'
+slice :i ::= <anything>:a ?(a.__class__ == Slice) !(self.ins(a.expr)) <thing i>:expr <slice_upper a.upper i>:upper <slice_lower a.lower i>:lower => expr+'['+lower+':'+upper+']'
 
 slice_upper :u :i ::= ?(u is None) => ''
                     | ?(u is not None) !(self.ins(u)) <thing i>:upper => upper 
@@ -518,24 +528,24 @@ slice_upper :u :i ::= ?(u is None) => ''
 slice_lower :l :i ::= ?(l is None) => ''
                     | ?(l is not None) !(self.ins(l)) <thing i>:lower => lower
 
-sliceobj :i ::= <anything>:a ?(a.__class__ == Sliceobj) !([self.ins(n) for n in a.nodes[::-1]]) <n_things len(a.nodes) i>:nodes => ':'.join(nodes)
+sliceobj :i ::= <anything>:a ?(a.__class__ == Sliceobj) <none_list a.nodes>:nodelist !([self.ins(n) for n in nodelist[::-1]]) <n_things len(nodelist) i>:nodes => ':'.join(nodes)
 
 # Stmt is a statement (code block), containing a list of nodes
 # We want each node to be on a new line with i tabs as indentation
 # We make a special case if the 'statement' is a constant None, since this ends
 # up putting a semicolon
-stmt :i ::= <anything>:a ?(a.__class__ == Stmt) !([self.ins(n) for n in a.nodes[::-1]]) <n_things len(a.nodes) i>:nodes => (\"""\n\"""+'\t'*i)+(\"""\n\"""+'\t'*i).join([n+';'*len([b for b in [0] if len(a.nodes)>e+1 and a.nodes[e+1].__class__ == Discard and a.nodes[e+1].expr.__class__ == Const and a.nodes[e+1].expr.value is None]) for e,n in enumerate(nodes)])
+stmt :i ::= <anything>:a ?(a.__class__ == Stmt) <none_list a.nodes>:nodelist !([self.ins(n) for n in nodelist[::-1]]) <n_things len(nodelist) i>:nodes => (\"""\n\"""+'\t'*i)+(\"""\n\"""+'\t'*i).join([n+';'*len([b for b in [0] if len(a.nodes)>e+1 and a.nodes[e+1].__class__ == Discard and a.nodes[e+1].expr.__class__ == Const and a.nodes[e+1].expr.value is None]) for e,n in enumerate(nodes)])
 
 # Matches subtraction
 sub :i ::= <anything>:a ?(a.__class__ == Sub) !(self.ins(a.left)) <thing i>:left !(self.ins(a.right)) <thing i>:right => '(('+left+') - ('+right+'))'
 
 # Matches extracting item(s) from a collection based on an index or key
-subscript :i ::= <anything>:a ?(a.__class__ == Subscript) !(self.ins(a.expr)) <thing i>:expr !([self.ins(s) for s in a.subs[::-1]]) <n_things len(a.subs) i>:subs => expr+'['+', '.join(subs)+']'
+subscript :i ::= <anything>:a ?(a.__class__ == Subscript) !(self.ins(a.expr)) <thing i>:expr <none_list a.subs>:sublist !([self.ins(s) for s in sublist[::-1]]) <n_things len(sublist) i>:subs => expr+'['+', '.join(subs)+']'
 
 # Matches try/except blocks
 tryexcept :i ::= <anything>:a ?(a.__class__ == TryExcept) <tryexcept_else a.else_ i>:else_ !(self.ins(a.body)) <thing i+1>:body <one_except a.handlers i>:hs => 'try:'+body+\"""\n\"""+i*'\t'+(\"""\n\"""+i*'\t').join(hs)+else_
 
-one_except :e :i ::= ?(len(e) > 0) <h_zero e[0] i>:h <h_one e[0] i>:h1 !(self.ins(e[0][2])) <thing i+i>:h2 <one_except e[1:] i>:next => ['except' + ' '.join(h) + ', '.join(h1) + h2]+next
+one_except :e :i ::= ?(len(e) > 0) <h_zero e[0] i>:h <h_one e[0] i>:h1 !(self.ins(e[0][2])) <thing i+1>:h2 <one_except e[1:] i>:next => ['except' + ' '.join(h) + ', '.join(h1) + ':' + h2]+next
                    | ?(len(e) == 0) => []
 
 h_zero :h :i ::= ?(h[0] is None) => []
@@ -552,7 +562,7 @@ tryfinally :i ::= <anything>:a ?(a.__class__ == TryFinally) ?(a.body.__class__ =
                 | <anything>:a ?(a.__class__ == TryFinally) !(self.ins(a.body)) <thing i+1>:body !(self.ins(a.final)) <thing i+1>:final => 'try:'+body+\"""\n\"""+i*'\t'+'finally:'+final
 
 # Matches an immutable, ordered collection
-tuple :i ::= <anything>:a ?(a.__class__ == Tuple) ?(len(a.nodes) > 1) !([self.ins(n) for n in a.nodes[::-1]]) <n_things len(a.nodes) i>:nodes => '('+', '.join(nodes)+')'
+tuple :i ::= <anything>:a ?(a.__class__ == Tuple) ?(len(a.nodes) > 1) <none_list a.nodes>:nodelist !([self.ins(n) for n in nodelist[::-1]]) <n_things len(nodelist) i>:nodes => '('+', '.join(nodes)+')'
            | <anything>:a ?(a.__class__ == Tuple) ?(len(a.nodes) == 1) !(self.ins(a.nodes[0])) <thing i>:node => '('+node+',)'
            | <anything>:a ?(a.__class__ == Tuple) ?(len(a.nodes) == 0) => '()'
 
@@ -584,8 +594,7 @@ n_things :n :i ::= ?(n == 0) => []
 cleanup ::= <anything>:a ?(a == [None])
           | ?(1 == 1)
 
-none_list :a ::= ?(a is None) => []
-               | ?(a is not None) => a
+none_list :a ::=  => make_list(a)
 """
 
 # These are the objects which will be available to the matcher
@@ -595,6 +604,7 @@ args['import_match'] = import_match
 args['tuple_args'] = tuple_args
 args['is_del'] = is_del
 args['pick_quotes'] = pick_quotes
+args['make_list'] = make_list
 
 # grammar is the class, instances of which can match using grammar_def
 stripped = strip_comments(grammar_def)
@@ -630,7 +640,7 @@ del stripped
 del args
 
 if __name__ == '__main__':
-		matcher = grammar([parse('1+2')])
+		matcher = grammar([parse('1<2')])
 		try:
 			result,err = matcher.apply('python',0)
 			print result

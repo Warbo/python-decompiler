@@ -54,7 +54,6 @@ if __name__ != '__main__' or len(sys.argv) == 1:
 				self.result = True
 			except EscapeException:
 				pass
-			
 	
 	tests = [\
 		Test('Addition','1+2', ['Statement', 'Constant']), \
