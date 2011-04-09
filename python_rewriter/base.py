@@ -215,7 +215,7 @@ node :i ::= <delete i>:d => d
 
 # Add is addition, with a left and a right
 # We want the left and right, joined by a plus sign '+'
-add :i ::= <anything>:a ?(a.__class__ == Add) !(self.ins(a.left)) <thing i>:left !(self.ins(a.right)) <thing i>:right => '(('+str(left)+') + ('+str(right)+'))'
+add :i ::= <anything>:a ?(a.__class__ == Add) !(self.ins(a.left)) !(self.ins(a.right)) <thing i>:right <thing i>:left => '(('+str(left)+') + ('+str(right)+'))'
 
 # Matches a chain of logical AND operations on booleans
 # NOTE: We must add a.nodes on to the stack in reverse order, then pop them back

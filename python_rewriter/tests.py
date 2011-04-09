@@ -1,12 +1,6 @@
 import sys
 from subprocess import call
 
-try:
-	import psyco
-	psyco.full()
-except:
-	pass
-
 class EscapeException(Exception):
 	pass
 
@@ -475,6 +469,11 @@ if __name__ != '__main__' or len(sys.argv) == 1:
 	from base import grammar as g
 	from pymeta.runtime import ParseError
 	import compiler
+	try:
+		import psyco
+		psyco.full()
+	except:
+		pass
 	# Run the tests
 	for test in tests:
 		test.run(g)

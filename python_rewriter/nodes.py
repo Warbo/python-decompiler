@@ -22,24 +22,6 @@ for name in dir(compiler.ast):
 # Get rid of our temporary variable, to keep this namespace clean
 del(cls)
 
-# This function is monkey-patched into the nodes, to allow recursion
-def rec(self, i):
-	"""This creates a matcher with the current instance as the input. It
-	then applies the "thing" rule with "i" as the indentation argument.
-	Finally it returns the result."""
-	self.matcher = self.grammar([self])
-	r = self.matcher.apply('thing', i)
-	if type(r) == type('string'):
-		return r
-	else:
-		return r[0]
-
-# Stick it into the superclass namespace
-Node.rec = rec
-
-# Now remove the definition from our namespace
-del(rec)
-
-# The namespace should now only comtain patched AST nodes, making
+# The namespace should now only contain patched AST nodes, making
 # from nodes import *
 # a safe operation
