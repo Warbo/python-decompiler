@@ -25,7 +25,7 @@ if __name__ != '__main__' or len(sys.argv) == 1:
 	
 		def run(self, grammar):
 			self.message = self.name.upper() + '\n=======================\n'
-			if self.code == '':
+			if self.code == '' and self.name is not 'Empty':
 				self.message = self.message + 'No test set'
 				return
 			
@@ -39,8 +39,11 @@ if __name__ != '__main__' or len(sys.argv) == 1:
 				try:
 					generated,err = g_tree.apply('thing',0)
 				except ParseError, e:
-					if (e.error is not None and len(e.error) > 0):
+					if e.error is not None and len(e.error) > 0:
 						self.message = self.message + """Error in grammar.\n""" + self.code + """\n\n""" + str(tree)
+						raise EscapeException()
+					else:
+						self.message = self.message + """Died"""
 						raise EscapeException()
 				try:
 					assert str(compiler.parse(generated)) == str(tree)
@@ -56,6 +59,7 @@ if __name__ != '__main__' or len(sys.argv) == 1:
 				pass
 	
 	tests = [\
+		Test('Empty','',['Statement','Module']), \
 		Test('Addition','1+2', ['Statement', 'Constant']), \
 		Test('And', '1 and True', ['Name', 'Constant']), \
 		Test('Assign Attribute', 'x.name = "ex"', ['Statement', 'Name']), \
@@ -236,7 +240,10 @@ x = []""", ['Statement']), \
 		Test('List Comprehension For', '[x for x in range(5)]', ['Statement']), \
 		Test('List Comprehension If', '[x for x in range(10) if x < 4]', ['Statement']), \
 		Test('Modulo', '10%3', ['Statement']), \
-		Test('Module', 'True', ['Statement', 'Name']), \
+		Test('Module', '''"""
+Some text.
+"""
+True''', ['Statement', 'Name']), \
 		Test('Multiplication', '5*x', ['Constant', 'Name']), \
 		Test('Name', 'True', ['Constant']), \
 		Test('Not', 'not True', ['Statement']), \
@@ -357,21 +364,26 @@ def do_file(grammar, testfile, name, do_print=False, notfile=None, workfile=None
 			
 	# Attempt to generate code from the AST
 	try:
-		code = grammar(tree).apply('thing',0)
-	except Exception, e:
-		# If we fail then make a note of it as appropriate
-		if keepnot:
-			notfile.write(name+'\n')
-			notfile.flush()
-		# And output more information if asked to
-		if do_print:
-			print repr(tree)
-			print
-			print str(e)
-			print "Error generating code"
-		# Now quit (we can't go any further)
-		#sys.exit(0)
-		return
+		matcher = grammar([tree])
+		code,err = matcher.apply('python',0)
+	except ParseError, e:
+		if e.error is not None and len(e.error) > 0:
+			# If we fail then make a note of it as appropriate
+			if keepnot:
+				notfile.write(name+'\n')
+				notfile.flush()
+			# And output more information if asked to
+			if do_print:
+				print repr(tree)
+				print
+				print str(e)
+				print "Error generating code"
+			# Now quit (we can't go any further)
+			#sys.exit(0)
+			return
+		else:
+			print "Died at "+str(matcher.input.position)+" of "+str(matcher.input.data)
+			return
 			
 	# Attempt to parse the generated code into an AST
 	try:
@@ -385,7 +397,7 @@ def do_file(grammar, testfile, name, do_print=False, notfile=None, workfile=None
 			notfile.flush()
 		# And output more information if asked to
 		if do_print:
-			print code
+			print repr(code)
 			print
 			print str(e)
 			print "Error parsing generated code"
@@ -411,8 +423,13 @@ def do_file(grammar, testfile, name, do_print=False, notfile=None, workfile=None
 				notfile.flush()
 			# And output if we've been asked to
 			if do_print:
+				print
+				print "DIDN'T MATCH"
+				print '##############'
 				tree1 = repr(tree)
+				print '##############'
 				tree2 = repr(new_tree)
+				print '##############'
 				for index in range(max(len(tree1), len(tree2))):
 					if tree1[index] == tree2[index]:
 						sys.stdout.write(tree1[index])

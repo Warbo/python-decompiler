@@ -115,8 +115,7 @@ def make_list(foo):
 	"""Returns the argument if it has a length, otherwise returns an empty list.
 	"""
 	try:
-		len(foo)
-		return foo
+		return list(foo)
 	except:
 		return []
 
@@ -598,6 +597,7 @@ none_list :a ::=  => make_list(a)
 """
 
 # These are the objects which will be available to the matcher
+import sys
 args = globals()
 args['constants'] = [str, int, float, complex]
 args['import_match'] = import_match
@@ -605,6 +605,7 @@ args['tuple_args'] = tuple_args
 args['is_del'] = is_del
 args['pick_quotes'] = pick_quotes
 args['make_list'] = make_list
+args['sys'] = sys
 
 # grammar is the class, instances of which can match using grammar_def
 stripped = strip_comments(grammar_def)
