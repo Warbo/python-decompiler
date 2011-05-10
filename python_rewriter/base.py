@@ -18,25 +18,6 @@ try:
 except:
 	pass
 
-# Can't get my OMeta subclasses to work, and OMeta has no comment syntax
-# so we have to remove comments from the grammar manually using this
-def strip_comments(s):
-	"""Strips comments (anything after a '#' up to a newline) from the
-	given string, returning the resulting string."""
-	r = ''
-	in_comment = False
-	for character in s:
-		if in_comment:
-			if character == '\n':
-				r = r+character
-				in_comment = False
-		else:
-			if character == '#':
-				in_comment = True
-			else:
-				r = r+character
-	return r
-
 # Couldn't think of a simple way to do these inside the grammar, so put
 # them in functions which are accessible from inside the grammar
 
@@ -608,8 +589,7 @@ args['make_list'] = make_list
 args['sys'] = sys
 
 # grammar is the class, instances of which can match using grammar_def
-stripped = strip_comments(grammar_def)
-grammar = OM.makeGrammar(stripped, args)
+grammar = OM.makeGrammar(grammar_def, args)
 
 # Patch the grammar for recursion
 def ins(self, val):
@@ -628,16 +608,12 @@ def ins(self, val):
 
 grammar.ins = ins
 
-# Give every AST node access to the grammar
-#Node.grammar = grammar
-
 def parse(code):
 	"""This parses the given code using Python's compiler module, but
 	with our monkey patching applied to the nodes."""
 	return compiler.parse(code)
 
 # Cleanup the namespace a little
-del stripped
 del args
 
 if __name__ == '__main__':

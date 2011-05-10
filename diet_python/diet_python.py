@@ -76,9 +76,12 @@ def comparison_to_and(node):
 		return CallFunc(Getattr(apply(node.expr), Name(ops[0][0])),[apply(ops[0][1])])
 	else:
 		first_op = ops.pop(0)
+		from python_rewriter.base import grammar
+		matcher = grammar([apply(a[1])])
+		val,err = matcher.apply('thing',0)
 		return CallFunc(Getattr(apply(node.expr), Name(first_op[0])), \
 			[apply(first_op[1]),List([ \
-				Tuple([Const(a[0]),Const(apply(a[1]).rec(0))]) for a in ops \
+				Tuple([Const(a[0]),Const(val)]) for a in ops \
 			])] \
 		)
 
@@ -162,6 +165,7 @@ thing ::= <add>
         | <while>
         | <with>
         | <yield>
+        | <anything>:a !(sys.stdout.write('FAIL '+str(a)+' ENDFAIL'))
 
 # a + b becomes a.__add__(b)
 add ::= <anything>:a ?(a.__class__ == Add) => apply(CallFunc(Getattr(a.left, Name('__add__')), [a.right], None, None))
@@ -197,7 +201,7 @@ assert ::= <anything>:a ?(a.__class__ == Assert) => Assert(apply(a.test), apply(
 assign ::= <anything>:a ?(a.__class__ == Assign) => Assign(apply(a.nodes), apply(a.expr))
 
 # a += b becomes a = a.__add__(b), etc.
-augassign ::= <anything>:a ?(a.__class__ == AugAssign) => apply(parse(a.node.rec(0)+'='+a.node.rec(0)+a.op[0]+a.expr.rec(0)))
+augassign ::= <anything>:a ?(a.__class__ == AugAssign) !(self.ins(a.node)) <thing 0>:node !(self.ins(a.expr)) <thing 0>:expr => apply(parse(node+'='+node+a.op[0]+expr))
 
 # `something` becomes repr(something)
 backquote ::= <anything>:a ?(a.__class__ == Backquote) => apply(CallFunc(Name('repr'), [a.expr], None, None))
@@ -354,7 +358,7 @@ mod ::= <anything>:a ?(a.__class__ == Mod) => apply(CallFunc(Getattr(a.left, '__
 
 # Recurse through Python modules
 # No actual code, no no need to change
-module ::= <anything>:a ?(a.__class__ == Module) => Module(apply(a.doc), apply(a.node))
+module ::= <anything>:a ?(a.__class__ == Module) => a#Module(apply(a.doc), apply(a.node))
 
 # a * b becomes a.__mul__(b)
 mul ::= <anything>:a ?(a.__class__ == Mul) => apply(CallFunc(Getattr(a.left, '__mul__'), [a.right], None, None))
@@ -466,7 +470,28 @@ yield ::= <anything>:a ?(a.__class__ == Yield) => Yield(apply(a.value))
 
 # Now we embed the transformations in every AST node, so that they can
 # apply them recursively to their children
+#from python_rewriter.base import grammar
+import sys
 transforms = OMeta.makeGrammar(strip_comments(tree_transform), globals())
+
+# Patch the grammar for recursion
+def ins(self, val):
+	"""This is a very dangerous function! We monkey-patch PyMeta grammars with
+	this so that we can insert an arbitrary value as the next input. This allows
+	us to recurse without having to	instantiate another matcher (we effectively
+	use the existing input as a stack). Beware of leaving cruft behind on the
+	input!"""
+	# Insert the value
+	self.input.data.insert(self.input.position, val)
+	# Throw away any cached input
+	self.input.tl = None
+	self.input.memo = {}
+	# Ensure success, if needed
+	return True
+
+transforms.ins = ins
+
+
 Node.tree_transform = tree_transform
 Node.transforms = transforms
 
@@ -479,10 +504,8 @@ def trans(self):
 	
 	self.transformer = self.transforms([self])
 	
-	r = self.transformer.apply('thing')
+	r,err = self.transformer.apply('thing')
 
-	if type(r) == type((0,1,2)):
-		return r[0]
 	return r
 	
 Node.trans = trans
@@ -514,7 +537,9 @@ def translate(path_or_text, initial_indent=0):
 		#print str(diet_tree)
 		
 		# Generate (Diet) Python code to match the transformed tree
-		diet_code = diet_tree.rec(initial_indent)
+		from python_rewriter.base import grammar
+		matcher = grammar([diet_tree])
+		diet_code,err = matcher.apply('thing', initial_indent)
 		
 		#print str(tree)
 		#print

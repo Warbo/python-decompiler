@@ -7,7 +7,7 @@ it is kept separate from the main Diet Python translations.
 
 What we want to do is get rid of keywords, like "a and b", and replace them with
 a more late-bound implementation "a.__logand__(b)". This is similar to Python's
-use of "__and__" for "+", "__sub__" for "-" and so on, although the main Python
+use of "__add__" for "+", "__sub__" for "-" and so on, although the main Python
 implementations do not support such transformations for the boolean operators.
 
 NOTE: We put "log" in the method names to prevent conflict with the bitwise
@@ -30,15 +30,18 @@ def replace_ors(node):
 		# transformations through the second node, then pretty print the result
 		# into a string which we wrap with a Const node and pass into a method
 		# call of __logor__ on the boolean of the first node
+		from python_rewriter.base import grammar
 		if len(node.nodes) == 2:
+			matcher = grammar([apply(node.nodes[-1])])
 			return CallFunc(Getattr(CallFunc(Name('bool'),[node.nodes[0]]), \
-				Name('__logor__')), [Const(apply(node.nodes[-1]).rec(0))])
+				Name('__logor__')), [Const(matcher.apply('thing',0))])
 		# Otherwise we build a nested series of ors (ie. "a or b or c or d"
 		# becomes "a or (b or (c or d))") which we do recursively, and then we
 		# apply ourselves to it recursively to complete the translation
 		else:
+			matcher = grammar([apply(Or(node.nodes[1:]))])
 			return CallFunc(Getattr(CallFunc(Name('bool'),[node.nodes[0]]), \
-				Name('__logor__')), [Const(apply(Or(node.nodes[1:])).rec(0))])
+				Name('__logor__')), [Const(matcher.apply('thing',0))])
 	else:
 		# If we've not got an Or node then simply recurse
 		try:
@@ -67,12 +70,15 @@ def replace_ands(node):
 		# If we have exactly 2 expressions then we simply build a string out of
 		# the second and send it to the boolean value of the first, which will
 		# presumably eval it if needed
+		from python_rewriter.base import grammar
 		if len(node.nodes) == 2:
+			matcher = grammar([apply(node.nodes[-1])])
 			return CallFunc(Getattr(CallFunc(Name('bool'),node.nodes[0]),
-				Name('__logand__')), [Const(apply(node.nodes[-1]).rec(0))])
+				Name('__logand__')), [Const(matcher.apply('thing',0))])
 		else:
+			matcher = grammar([apply(And(node.nodes[1:])).rec(0)])
 			return CallFunc(Getattr(CallFunc(Name('bool'),node.nodes[0]),
-				Name('__logand__')), [Const(apply(And(node.nodes[1:])).rec(0))])
+				Name('__logand__')), [Const(matcher.apply('thing',0))])
 	else:
 		# If we've not got an And node then simply recurse
 		try:
