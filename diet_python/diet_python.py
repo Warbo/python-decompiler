@@ -20,7 +20,7 @@ except:
 
 import os
 import sys
-from python_rewriter.base import grammar_def, strip_comments, parse, constants
+from python_rewriter.base import grammar_def, parse, constants
 from python_rewriter.nodes import *
 from pymeta.grammar import OMeta
 

@@ -31,7 +31,7 @@ if __name__ != '__main__' or len(sys.argv) == 1:
 			try:
 				g_tree = grammar([tree])
 				try:
-					generated,err = g_tree.apply('thing',0)
+					generated = g_tree.apply('thing',0)[0]
 				except ParseError, e:
 					if e.error is not None and len(e.error) > 0:
 						self.message = self.message + """Error in grammar.\n""" + self.code + """\n\n""" + str(tree)
@@ -359,7 +359,7 @@ def do_file(grammar, testfile, name, do_print=False, notfile=None, workfile=None
 	# Attempt to generate code from the AST
 	try:
 		matcher = grammar([tree])
-		code,err = matcher.apply('python',0)
+		code = matcher.apply('python',0)[0]
 	except ParseError, e:
 		if e.error is not None and len(e.error) > 0:
 			# If we fail then make a note of it as appropriate
@@ -460,11 +460,12 @@ def do_file(grammar, testfile, name, do_print=False, notfile=None, workfile=None
 		# Now quit
 		#sys.exit(0)
 		return
-	
 
-# Run the following if we've been imported or if we've not been given any
-# arguments
-if __name__ != '__main__' or len(sys.argv) == 1:
+# Do imports first. These are expensive (especially base) so they'e conditional
+are_imported = __name__ != '__main__'
+no_arguments = len(sys.argv) == 1
+file_of_files = "-f" in sys.argv
+if are_imported or no_arguments or not file_of_files:
 	import base
 	from base import grammar as g
 	from pymeta.runtime import ParseError
@@ -474,6 +475,10 @@ if __name__ != '__main__' or len(sys.argv) == 1:
 		psyco.full()
 	except:
 		pass
+
+# Run the following if we've been imported or if we've not been given any
+# arguments
+if are_imported or no_arguments:
 	# Run the tests
 	for test in tests:
 		test.run(g)
@@ -522,7 +527,7 @@ if __name__ != '__main__' or len(sys.argv) == 1:
 # If we've got arguments then run the following instead
 else:
 	# A "-f" argument means "test the files named in this file"
-	if "-f" in sys.argv:
+	if file_of_files:
 		
 		# Make some defaults
 		keepnot = False
@@ -561,10 +566,6 @@ else:
 	
 	# If we have no list of files, we should use the first argument
 	else:
-		import base
-		from base import grammar as g
-		from pymeta.runtime import ParseError
-		import compiler
 		# Define defaults
 		do_print = True
 		keepnot = False
