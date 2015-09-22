@@ -1,0 +1,12 @@
+*.pyc
+build
+DONT
+DONT2
+OUT
+PYFILES
+TEST
+TEST2
+WORK
+WORK2
+*.png
+*.dot

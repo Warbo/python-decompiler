@@ -1,4 +1,5 @@
 import sys
+import gc
 import base
 from subprocess import call
 from base import grammar as g
@@ -13,48 +14,174 @@ except:
 class EscapeException(Exception):
 	pass
 
-class Test:
+class Test(object):
 
 	def __init__(self, name, code, deps):
 		self.name = name
 		self.code = code
 		self.deps = deps
-		self.result = False
-		self.message = self.name + ": Test didn't run"
 
 	def get_tree(self):
 		return base.parse(self.code)
 
-	def run(self, grammar):
-		self.message = self.name.upper() + '\n=======================\n'
-		if self.code == '':
-			self.message = self.message + 'No test set'
-			return
+	def run(self):
+		result = False
+		message = self.name.upper() + '\n=======================\n'
 		try:
+			if self.code == '':
+				message = message + 'No test set'
+				raise EscapeException()
 			try:
 				tree = self.get_tree()
 			except SyntaxError:
-				self.message = self.message + """Error in test.\n""" + self.code
+				message = message + """Error in test.\n""" + self.code
 				raise EscapeException()
 			try:
 				generated = tree.rec(0)
 			except ParseError:
-				self.message = self.message + """Error in grammar.\n""" + self.code + """\n\n""" + tree
+				message = message + """Error in grammar.\n""" + self.code + """\n\n""" + tree
 				raise EscapeException()
 			try:
 				assert str(compiler.parse(generated)) == str(tree)
 			except AssertionError:
-				self.message = self.message + """Error, generated code does not match original.\n""" + self.code + """\n\n""" + str(tree) + """\n\n""" + generated
+				message = message + """Error, generated code does not match original.\n""" + self.code + """\n\n""" + str(tree) + """\n\n""" + generated
 				raise EscapeException()
 			except SyntaxError:
-				self.message = self.message + """Error in generated code.\n""" + self.code + """\n\n""" + str(tree) + """\n\n""" + generated
+				message = message + """Error in generated code.\n""" + self.code + """\n\n""" + str(tree) + """\n\n""" + generated
 				raise EscapeException()
-			self.message = self.message + "OK"
-			self.result = True
+			message = message + "OK"
+			result = True
 		except EscapeException:
-			pass
+			try: del(tree)
+			except: pass
+			try: del(generated)
+			except: pass
+		return (result, message, self.deps)
 
-tests = [\
+def do_file(testfile, name, do_print=False, notfile=None, workfile=None):
+	if notfile is None: keepnot = False
+	else: keepnot = True
+	if workfile is None: keepwork = False
+	else: keepwork = True
+	
+	# Attempt to parse the file contents into an AST
+	try:
+		tree = base.parse(''.join(testfile.readlines()))
+		testfile.close()
+	except Exception, e:
+		# If we fail then make a note of it as appropriate
+		if keepnot:
+			notfile.write(name+'\n')
+			notfile.flush()
+		# And output more information if asked to
+		if do_print:
+			testfile.seek(0)
+			print ''.join(testfile.readlines())
+			print
+			print str(e)
+			print "Error parsing input."
+		# Now quit (we can't go any further)
+		#sys.exit(0)
+		return
+			
+	# Attempt to generate code from the AST
+	try:
+		code = tree.rec(0)
+	except Exception, e:
+		# If we fail then make a note of it as appropriate
+		if keepnot:
+			notfile.write(name+'\n')
+			notfile.flush()
+		# And output more information if asked to
+		if do_print:
+			print repr(tree)
+			print
+			print str(e)
+			print "Error generating code"
+		# Now quit (we can't go any further)
+		#sys.exit(0)
+		return
+			
+	# Attempt to parse the generated code into an AST
+	try:
+		new_tree = base.parse(code)
+		# Get rid of the code now that we don't need it
+		del(code)
+	except Exception, e:
+		# If we fail then make a note of it if asked to
+		if keepnot:
+			notfile.write(name+'\n')
+			notfile.flush()
+		# And output more information if asked to
+		if do_print:
+			print code
+			print
+			print str(e)
+			print "Error parsing generated code"
+		# Now quit (we can't go any further)
+		#sys.exit(0)
+		return
+
+	# Attempt to equate the two trees
+	try:
+		# repr(tree1) should equal repr(tree2)
+		if repr(tree) == repr(new_tree):
+			# If so then we have succeeded, note is as required
+			if keepwork:
+				workfile.write(name+'\n')
+				workfile.flush()
+			if do_print:
+				print "Match"
+		# Otherwise...
+		else:
+			# If they're not equal then make a note as required
+			if keepnot:
+				notfile.write(name+'\n')
+				notfile.flush()
+			# And output if we've been asked to
+			if do_print:
+				tree1 = repr(tree)
+				tree2 = repr(new_tree)
+				for index in range(max(len(tree1), len(tree2))):
+					if tree1[index] == tree2[index]:
+						sys.stdout.write(tree1[index])
+					else:
+						print "FAIL HERE"
+						print
+						print tree1[index:]
+						print
+						print tree2[index:]
+						break
+		# Now quit				
+		#sys.exit(0)
+		return
+				
+	except Exception, e:
+		# If there's an error then note it as appropriate
+		if keepnot:
+			notfile.write(name+'\n')
+			notfile.flush()
+		# And output more information if asked to
+		if do_print:
+			tree1 = repr(tree)
+			tree2 = repr(new_tree)
+			for index in range(max(len(tree1), len(tree2))):
+				if tree1[index] == tree2[index]:
+					sys.stdout.write(tree1[index])
+				else:
+					print "FAIL HERE"
+					print
+					print tree1[index:]
+					print
+					print tree2[index:]
+					break
+		# Now quit
+		#sys.exit(0)
+		return
+	
+def no_args():
+	# Define the tests
+	[\
 	Test('Addition','1+2', ['Statement', 'Constant']), \
 	Test('And', '1 and True', ['Name', 'Constant']), \
 	Test('Assign Attribute', 'x.name = "ex"', ['Statement', 'Name']), \
@@ -113,7 +240,7 @@ u"Unicode"
 "DOUBLE"
 '''Triple'''
 """+'"""SEXTUPLE"""'+"""
-None""", ['Statement']), \
+None;""", ['Statement']), \
 	Test('Continue', """for x in range(5):
 	if x == 2:
 		continue
@@ -265,7 +392,11 @@ z[a:]""", ['Statement']), \
 	Test('Slice Object', """
 x[start:end:step]
 """, ['Statement']), \
-	Test('Statement', 'True', ['Module', 'Name']), \
+	Test('Statement', """
+True
+a;b;c=5
+x;y;z;
+""", ['Module', 'Name']), \
 	Test('Subtraction', '1-x', ['Constant', 'Name']), \
 	Test('Subscription', """x[5]
 del x[y]
@@ -309,243 +440,92 @@ with open('a', 'r') as f:
 	read(f)
 """, ['Statement', 'Function Call']), \
 	Test('Yield', 'yield x', ['Statement']) \
-]
+	]
+	# Run the tests
+	while len(tests) > 0:
+		(r,m,d) = tests.pop(0).run()
+		print m
+		if not r: print "(Deps: "+','.join(d)+")"
+		gc.collect()
 
-def do_file(testfile, name, do_print=False, notfile=None, workfile=None):
-	if notfile is None: keepnot = False
-	else: keepnot = True
-	if workfile is None: keepwork = False
-	else: keepwork = True
+def file_list():
 	
-	# Attempt to parse the file contents into an AST
-	try:
-		tree = base.parse(''.join(testfile.readlines()))
-		testfile.close()
-	except Exception, e:
-		# If we fail then make a note of it as appropriate
-		if keepnot:
-			notfile.write(name+'\n')
-			notfile.flush()
-		# And output more information if asked to
-		if do_print:
-			testfile.seek(0)
-			print ''.join(testfile.readlines())
-			print
-			print str(e)
-			print "Error parsing input."
-		# Now quit (we can't go any further)
-		#sys.exit(0)
-		return
+	# Make some defaults
+	keepnot = False
+	keepwork = False
 			
-	# Attempt to generate code from the AST
-	try:
-		code = tree.rec(0)
-	except Exception, e:
-		# If we fail then make a note of it as appropriate
-		if keepnot:
-			notfile.write(name+'\n')
-			notfile.flush()
-		# And output more information if asked to
-		if do_print:
-			print repr(tree)
-			print
-			print str(e)
-			print "Error generating code"
-		# Now quit (we can't go any further)
-		#sys.exit(0)
-		return
+	# See if we've been given files to write to
+	# "-w" should be followed by a file to append successes to
+	if '-w' in sys.argv:
+		workfile = sys.argv[sys.argv.index('-w')+1]
+		keepwork = True
+	else: workfile = None
+	# "-n" should be followed by a file to append failures to
+	if '-n' in sys.argv:
+		notfile = sys.argv[sys.argv.index('-n')+1]
+		keepnot = True
+	else: notfile = None
 			
-	# Attempt to parse the generated code into an AST
-	try:
-		new_tree = base.parse(code)
-		# Get rid of the code now that we don't need it
-		del(code)
-	except Exception, e:
-		# If we fail then make a note of it if asked to
-		if keepnot:
-			notfile.write(name+'\n')
-			notfile.flush()
-		# And output more information if asked to
-		if do_print:
-			print code
-			print
-			print str(e)
-			print "Error parsing generated code"
-		# Now quit (we can't go any further)
-		#sys.exit(0)
-		return
+	# Generate the filenames we're to test
+	infile = open(sys.argv[sys.argv.index('-f')+1], 'r')
+	lines = [line.strip() for line in infile.readlines()]
+			
+	# Test each file by calling do_file.
+	# We could easily do testing concurrently, but I only have
+	# one processor, so haven't bothered doing it yet).
+	for num, line in enumerate(lines):
+		#arguments = ['python', 'tests.py', line]
+		#if keepnot:
+		#	arguments.extend(['-n', notfile])
+		#if keepwork:
+		#	arguments.extend(['-w', workfile])
+		#call(arguments)
+		do_file(open(line, 'r'), line, False, open(notfile, 'a'), open(workfile, 'a'))
+		# Give a progress indicator (the number remaining)
+		sys.stderr.write(str(len(lines)-num)+'\n')
+		sys.stderr.flush()
+		gc.collect()
 
-	# Attempt to equate the two trees
-	try:
-		# repr(tree1) should equal repr(tree2)
-		if repr(tree) == repr(new_tree):
-			# If so then we have succeeded, note is as required
-			if keepwork:
-				workfile.write(name+'\n')
-				workfile.flush()
-			if do_print:
-				print "Match"
-		# Otherwise...
-		else:
-			# If they're not equal then make a note as required
-			if keepnot:
-				notfile.write(name+'\n')
-				notfile.flush()
-			# And output if we've been asked to
-			if do_print:
-				tree1 = repr(tree)
-				tree2 = repr(new_tree)
-				for index in range(max(len(tree1), len(tree2))):
-					if tree1[index] == tree2[index]:
-						sys.stdout.write(tree1[index])
-					else:
-						print "FAIL HERE"
-						print
-						print tree1[index:]
-						print
-						print tree2[index:]
-						break
-		# Now quit				
-		#sys.exit(0)
-		return
-				
-	except Exception, e:
-		# If there's an error then note it as appropriate
-		if keepnot:
-			notfile.write(name+'\n')
-			notfile.flush()
-		# And output more information if asked to
-		if do_print:
-			tree1 = repr(tree)
-			tree2 = repr(new_tree)
-			for index in range(max(len(tree1), len(tree2))):
-				if tree1[index] == tree2[index]:
-					sys.stdout.write(tree1[index])
-				else:
-					print "FAIL HERE"
-					print
-					print tree1[index:]
-					print
-					print tree2[index:]
-					break
-		# Now quit
-		#sys.exit(0)
-		return
-	
+def one_file():
+	# Define defaults
+	do_print = True
+	keepnot = False
+	keepwork = False
+			
+	# See if we have output files to append to
+	if '-w' in sys.argv and '-n' in sys.argv:
+		# "do_print" indicates that we should output test
+		# information to the console
+		do_print = False
+		# Whether to keep a note of files afterwards
+		keepwork = True
+		keepnot = True
+		workfile = open(sys.argv[sys.argv.index('-w')+1], 'a')
+		notfile = open(sys.argv[sys.argv.index('-n')+1], 'a')
+	else:
+		workfile = None
+		notfile = None
+			
+	# The file to use
+	name = sys.argv[1]
+	testfile = open(name, 'r')
+			
+	# Now test the contents
+	do_file(testfile, name, do_print, notfile, workfile)
+	testfile.close()
 
 # Run the following if we've been run specifically (rather than imported)
 if __name__ == '__main__':
 	# If we've not been given any arguments then perform the above tests
 	if len(sys.argv) == 1:
-		# Run the tests
-		for test in tests:
-			test.run(g)
-
-		# These will store our results
-		failed = []
-		succeeded = []
-		unknown = []
-
-		# Go through each test
-		for test in tests:
-			# Assign it to the relevant list based on its result
-			if not test.result:
-				failed.append(test)
-			else:
-				succeeded.append(test)
-
-		# Now go through (a copy of) each failed test
-		for test in failed[:]:
-			# See if any features it relies on also failed
-			for dep in test.deps:
-				for test2 in failed[:]:
-					if test2.name == dep:
-						# If so then move it to the "unknown" list
-						try:
-							failed.remove(test)
-							unknown.append(test)
-						except ValueError:
-							pass
-
-		# Now our "succeeded" list will contain every successful feature
-		# The "failed" list will contain those features which don't work
-		# The "unknown" list will have those with no information (ie.
-		# their tests require dependencies to work before running) 
-
-		# Output the results
-		for s in succeeded:
-			print s.message
-
-		for u in unknown:
-			print u.name + ': Unknown (depends on broken rules)'
-
-		for f in failed:
-			print f.message
+		no_args()
 
 	# If we've got arguments then run the following instead
 	else:
 		# A "-f" argument means "test the files named in this file"
 		if "-f" in sys.argv:
-			
-			# Make some defaults
-			keepnot = False
-			keepwork = False
-			
-			# Ssee if we've been given files to write to
-			# "-w" should be followed by a file to append successes to
-			if '-w' in sys.argv:
-				workfile = sys.argv[sys.argv.index('-w')+1]
-				keepwork = True
-			else: workfile = None
-			# "-n" should be followed by a file to append failures to
-			if '-n' in sys.argv:
-				notfile = sys.argv[sys.argv.index('-n')+1]
-				keepnot = True
-			else: notfile = None
-			
-			# Generate the filenames we're to test
-			infile = open(sys.argv[sys.argv.index('-f')+1], 'r')
-			lines = [line.strip() for line in infile.readlines()]
-			
-			# Test each file by calling do_file.
-			# We could easily do testing concurrently, but I only have
-			# one processor, so haven't bothered doing it yet).
-			for num, line in enumerate(lines):
-				#arguments = ['python', 'tests.py', line]
-				#if keepnot:
-				#	arguments.extend(['-n', notfile])
-				#if keepwork:
-				#	arguments.extend(['-w', workfile])
-				#call(arguments)
-				do_file(open(line, 'r'), line, False, open(notfile, 'a'), open(workfile, 'a'))
-				# Give a progress indicator (the number remaining)
-				sys.stderr.write(str(len(lines)-num)+'\n')
-				sys.stderr.flush()
+			file_list()
 		
 		# If we have no list of files, we should use the first argument
 		else:
-			# Define defaults
-			do_print = True
-			keepnot = False
-			keepwork = False
-			
-			# See if we have output files to append to
-			if '-w' in sys.argv and '-n' in sys.argv:
-				# "do_print" indicates that we should output test
-				# information to the console
-				do_print = False
-				# Whether to keep a note of files afterwards
-				keepwork = True
-				keepnot = True
-				workfile = open(sys.argv[sys.argv.index('-w')+1], 'a')
-				notfile = open(sys.argv[sys.argv.index('-n')+1], 'a')
-			else:
-				workfile = None
-				notfile = None
-			
-			# The file to use
-			name = sys.argv[1]
-			testfile = open(name, 'r')
-			
-			# Now test the contents
-			do_file(testfile, name, do_print, notfile, workfile)
+			one_file()

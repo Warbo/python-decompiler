@@ -6,6 +6,14 @@ Useful for importing all nodes at once.
 
 import compiler
 
+class Semi(compiler.ast.Node):
+	
+	def __init__(self):
+		super(Semi, self).__init__()
+	
+	def asList(self):
+		return []
+
 # Go through everything in the compiler.ast module
 for name in dir(compiler.ast):
 	# Instantiate whatever we've come across
@@ -33,6 +41,9 @@ def rec(self, i):
 
 # Stick it into the superclass namespace
 Node.rec = rec
+
+# Hack to handle lines ending in semicolons
+Node.semi = False
 
 # Now remove the definition from our namespace
 del(rec)

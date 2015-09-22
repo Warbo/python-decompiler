@@ -39,7 +39,19 @@ def strip_comments(s):
 
 # Couldn't think of a simple way to do these inside the grammar, so put
 # them in functions which are accessible from inside the grammar
-
+def add_semis(nodes):
+	for i,n in enumerate(nodes):
+		if n.__class__ == Discard and n.expr.__class__ == Const and \
+			n.expr.value is None:
+			nodes[i-1].semi = True
+	return nodes
+	
+def semi(node):
+	if node.semi:
+		return ';'
+	else:
+		return ''
+		
 def import_match(names):
 	"""Adds "as" clauses to any import statements which supply them."""
 	r = []
@@ -156,6 +168,7 @@ thing :i ::= <node i>+:t => ''.join(t)
 
 # A "node" is an AST node. The handling of each is deferred to the 
 # appropriate rule for that node type
+
 node :i ::= <delete i>:d => d
           | <add i>:a => a
           | <and i>:a => a
@@ -306,7 +319,7 @@ compare :i ::= <anything>:a ?(a.__class__ == Compare) => a.expr.rec(i) + ' ' + '
 
 # Const wraps a constant value
 # We want strings in quotes and numbers as strings
-const :i ::= <anything>:a ?(a.__class__ == Const) ?(a.value is None) => ';'
+const :i ::= <anything>:a ?(a.__class__ == Const) ?(a.value is None) => ''
            | <anything>:a ?(a.__class__ == Const) => repr(a.value)
 # <anything>:a ?(a.__class__ == Const) ?(type(a.value) == unicode) => 'u'+pick_quotes(a.value)
 #           | <anything>:a ?(a.__class__ == Const) ?(type(a.value) == str) => pick_quotes(a.value)
@@ -505,7 +518,8 @@ sliceobj :i ::= <anything>:a ?(a.__class__ == Sliceobj) => ':'.join([n.rec(i) fo
 
 # Stmt is a statement (code block), containing a list of nodes
 # We want each node to be on a new line with i tabs as indentation
-stmt :i ::= <anything>:a ?(a.__class__ == Stmt) => (\"""\n\"""+'\t'*i)+(\"""\n\"""+'\t'*i).join([n.rec(i) for n in a.nodes])
+# We use a couple of functions to add end-of-line semicolons
+stmt :i ::= <anything>:a ?(a.__class__ == Stmt) => (\"""\n\"""+'\t'*i)+(\"""\n\"""+'\t'*i).join([n.rec(i)+semi(n) for n in add_semis(a.nodes)])
 
 # Matches subtraction
 sub :i ::= <anything>:a ?(a.__class__ == Sub) => '(('+a.left.rec(i)+') - ('+a.right.rec(i)+'))'
