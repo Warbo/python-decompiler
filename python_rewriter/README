@@ -30,22 +30,23 @@ methods.
 
 USAGE
 
-The main work is done in the file transformer.py. This contains the
-OMeta grammar string, transformer.grammar_def, used to pretty print the
+The main work is done in the file base.py. This contains the
+OMeta grammar string, base.grammar_def, used to pretty print the
 Python AST (OMeta rules can be redefined, so importing and extending
 this with your own rules is one way to build on the grammar).
 
-The OMeta grammar class for these rules is called transformer.grammar,
+The OMeta grammar class for these rules is called base.grammar,
 and can be instantiated with an iterable argument containing AST nodes*.
 For example:
 
-matcher = transformer.grammar(transformer.parse(some_python))
+matcher = base.grammar(base.parse(some_python))
 
-will NOT work. However, the following will:
+will NOT work, since base.parse(some_python) isn't iterable. However,
+the following will work since the argument is a list:
 
-matcher = transformer.grammar([transformer.parse(some_python)])
+matcher = base.grammar([base.parse(some_python)])
 
-This gives a grammar instance with the contents of "some_python"
+This gives a grammar instance with the AST of "some_python"
 assigned to its input. Rules can now be applied to this instance, with
 the format:
 
@@ -61,9 +62,10 @@ last piece of input which was consumed will be returned instead.
 The base rule for generating Python is called simply "python", and takes
 a singe integer as an argument. This integer is the amount of
 indentation (number of tabs) to use initially (so using 0 will give the
-left-most lines no indentation).
+left-most lines no indentation). If you prefer spaces then you can pass
+the code through a tab-to-spaces function easily enough.
 
-To try this out you can run the transformer.py file directly, which will
+To try this out you can run the base.py file directly, which will
 construct the grammar, parse a test string into a tree then
 pattern-match it back into a string of Python. It then parses this
 generated string and compares the two ASTs. If they are the same it
@@ -76,14 +78,15 @@ case the original code, the generated code and the AST is printed) and
 those which don't work because they rely on other tests which are not
 working. An example of the latter is a test for Print nodes like
 "print 5,", which will fail if Const(ant) is broken, but this doesn't
-necessarily imply that Print is broken.
+necessarily imply that Print is broken. Not all dependencies are
+explicitly stated yet, but it's a simple (if boring) thing to do.
 
 * The nodes directly from compiler.ast will not work, however, since
 they need to be monkey patched to allow recursion. This only requires
 two lines, however:
 
 Node.rec = nodes.rec
-Node.grammar = transformer.g
+Node.grammar = base.g
 
 To import all node types with the rec function defined already you can
 import everything from nodes.py for convenience (you'll still need to

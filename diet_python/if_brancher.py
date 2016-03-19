@@ -173,13 +173,13 @@ def unwrap_if(tests, else_):
 def replace_ifs(node):
 	"""Given an AST node, replaces if statements with calls to __if__."""
 	# Get rid of elif statements
-	tree = replace_elifs(node)
+	#tree = replace_elifs(node)
 	# We want to transform If nodes
 	if tree.__class__ == If:
 		# Call the __if__ method of the condition instead (and recurse through
 		# the If's children)
-		return CallFunc(Getattr(node.tests[0][0], Name('__if__')), [ \
-			replace_ifs(node.tests[0][1]), replace_ifs(node.else_)])
+		return CallFunc(Getattr(CallFunc(Name('bool'),[node.tests[0][0]]), \
+			Name('__if__')), [replace_ifs(node.tests[0][1]), replace_ifs(node.else_)])
 	# If it's not an If node then recurse
 	else:
 		try:
@@ -201,3 +201,5 @@ def replace_ifs(node):
 			# have an asList method. These are leaves anyway, so we don't need
 			# to recurse into them
 			return node
+
+extra_filters = [replace_ifs]

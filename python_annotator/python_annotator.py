@@ -66,138 +66,43 @@ except:
 
 import os
 import sys
-from python_rewriter.base import grammar_def, strip_comments, parse, constants
+from python_rewriter.base import parse, constants
 from python_rewriter.nodes import *
-from pymeta.grammar import OMeta
 
-def apply(arg):
-	"""Runs transformations on the argument. If the argument has a trans
-	method, that is run; if it is a list, apply is mapped to the list;
-	if it is a "type" (None, str, etc.) then that is returned unchanged.
-	"""
-	if type(arg) in [type('string'), type(0), type(None)]:
-		return arg
-	elif type(arg) == type([0,1]):
-		return map(apply, arg)
-	elif type(arg) == type((0,1)):
-		return tuple(map(apply, arg))
-	elif 'trans' in dir(arg):
-		return arg.trans()
-	else:
-		raise Exception("Couldn't transform "+str(arg))
+def add_annotations(node):
+	"""This adds annotation assertions to the given node, and
+	recursively to its children. It returns the number of annotations
+	made (ie. zero means no changes too place)."""
+	# Initialise the change counter
+	count = 0
+	# We can't do anything to "types" so if we've been given one, return
+	if type(node) in [type(''), type((,)), type([]), type({}),
+		type(None), type(True)]:
+		return count
+	# Here we define the annotations we're going to check for
+	# TODO: Make this more extensible, ie. read them from some external
+	# source rather than having them hard-coded
 
-# Diet Python is implemented by transforming the Abstract Syntax
-# Tree. Here we define the tree transformations we wish to make, using
-# PyMeta.
+	# First give the node a set of annotations if it doesn't have one
+	if 'annotations' not in dir(node):
+		node.annotations = set([])
 
-tree_transform = """
-# "thing" matches anything, applying transforms to those which have them
-thing ::= <add>
-#        | <and>
-#        | <assattr>
-#        | <asslist>
-#        | <assname>
-#        | <asstuple>
-#        | <assert>
-#        | <assign>
-#        | <augassign>
-#        | <backquote>
-#        | <bitand>
-#        | <bitor>
-#        | <bitxor>
-#        | <break>
-#        | <callfunc>
-#        | <class>
-#        | <compare>
-#        | <const>
-#        | <continue>
-#        | <decorators>
-#        | <dict>
-#        | <discard>
-#        | <div>
-#        | <ellipsis>
-#        | <emptynode>
-#        | <exec>
-#        | <expression>
-#        | <floordiv>
-#        | <for>
-#        | <from>
-#        | <function>
-#        | <genexpr>
-#        | <genexprfor>
-#        | <genexprif>
-#        | <genexprinner>
-#        | <getattr>
-#        | <global>
-#        | <if>
-#        | <ifexp>
-#        | <import>
-#        | <invert>
-#        | <keyword>
-#        | <lambda>
-#        | <leftshift>
-#        | <list>
-#        | <listcomp>
-        | <listcompfor>
-        | <listcompif>
-        | <mod>
-        | <module>
-        | <mul>
-        | <name>
-        | <not>
-        | <or>
-        | <pass>
-        | <power>
-        | <print>
-        | <printnl>
-        | <raise>
-        | <return>
-        | <rightshift>
-        | <slice>
-        | <sliceobj>
-        | <stmt>
-        | <sub>
-        | <subscript>
-        | <tryexcept>
-        | <tryfinally>
-        | <tuple>
-        | <unaryadd>
-        | <unarysub>
-        | <while>
-        | <with>
-        | <yield>
+	# Now go through each Node possibility
+	if node.__class__ == Add:
+		node.annotations = node.annotations.union(set([
+			'"__add__" in dir(node.left)',
+			'"__call__" in dir(node.left.__add__)'
+		]))
 
-add ::= <anything>:a ?(a.__class__ == Add) => put(a, [('a.left', 'contains', '__add__'), ('a.left.__add__', 'runnable'), ('a.left.__add__', 'accepts', 'a.right')]) 
+	for child in node.asList():
+		count += add_annotations(child)
+	return count
 
-#assattr ::=  <anything>:a ?(a.__class__ == AssAttr) => put(a, [])
-"""
-
-# Now we embed the transformations in every AST node, so that they can
-# apply them recursively to their children
-transforms = OMeta.makeGrammar(strip_comments(tree_transform), globals())
-Node.tree_transform = tree_transform
-Node.transforms = transforms
-
-def trans(self):
-	"""This creates a tree transformer with the current instance as
-	the input. It then applies the "thing" rule. Finally it returns
-	the result."""
-	# Uncomment to see exactly which bits are causing errors
-	print str(self)
-	
-	self.transformer = self.transforms([self])
-	
-	r = self.transformer.apply('thing')
-	
-	return r
-	
-Node.trans = trans
-
-def translate(path_or_text, initial_indent=0):
-	"""This performs the translation from Python to Diet Python. It
-	takes in Python code (assuming the string to be a file path, falling
-	back to treating it as Python code if it is not a valid path) and
-	emits Diet Python code."""
+def annotate(path_or_text, initial_indent=0):
+	"""This performs the translation from annotated Python to normal
+	Python. It takes in annotated Python code (assuming the string to be
+	a file path, falling back to treating it as raw code if it is not a
+	valid path) and emits Python code."""
 	# See if the given string is a valid path
 	if os.path.exists(path_or_text):
 		# If so then open it and read the file contents into in_text
@@ -207,32 +112,32 @@ def translate(path_or_text, initial_indent=0):
 	# Otherwise take the string contents to be in_text
 	else:
 		in_text = path_or_text
-		
+
 	# Wrap in try/except to give understandable error messages (PyMeta's
 	# are full of obscure implementation details)
 	try:
 		# Get an Abstract Syntax Tree for the contents of in_text
 		tree = parse(in_text)
-		
+
 		# Transform the Python AST into a Diet Python AST
-		diet_tree = tree.trans()
-		
+		annotated_tree = tree.ann()
+
 		#print str(tree)
 		#print str(diet_tree)
-		
+
 		# Generate (Diet) Python code to match the transformed tree
-		diet_code = diet_tree.rec(initial_indent)
-		
+		annotated_code = annotated_tree.rec(initial_indent)
+
 		print str(tree)
 		print
-		print str(diet_tree)
+		print str(annotated_tree)
 		print
-		
-		print diet_code
-		
+
+		print annotated_code
+
 	except Exception, e:
 		sys.stderr.write(str(e)+'\n')
-		sys.stderr.write('Unable to translate.\n')
+		sys.stderr.write('Unable to annotate.\n')
 		sys.exit(1)
 
 if __name__ == '__main__':
@@ -241,4 +146,4 @@ if __name__ == '__main__':
 	if len(sys.argv) == 2:
 		translate(sys.argv[1])
 	else:
-		print "Usage: diet_python.py input_path_or_raw_python_code"
+		print "Usage: python_annotator.py input_path_or_raw_python_code"

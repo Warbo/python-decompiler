@@ -10,3 +10,13 @@ WORK
 WORK2
 *.png
 *.dot
+*.csv
+*.gnumeric
+ALL_PYTHON_FILES
+DONT
+PYTHON_TESTS
+WORK
+*.pickled
+*.png
+profile
+build

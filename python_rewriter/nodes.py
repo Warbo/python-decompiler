@@ -7,10 +7,10 @@ Useful for importing all nodes at once.
 import compiler
 
 class Semi(compiler.ast.Node):
-	
+
 	def __init__(self):
 		super(Semi, self).__init__()
-	
+
 	def asList(self):
 		return []
 
@@ -18,7 +18,7 @@ class Semi(compiler.ast.Node):
 for name in dir(compiler.ast):
 	# Instantiate whatever we've come across
 	cls = eval('compiler.ast.'+name)
-	
+
 	# If we've found a type of Node then import it
 	try:
 		if issubclass(cls, compiler.ast.Node):
@@ -48,6 +48,6 @@ Node.semi = False
 # Now remove the definition from our namespace
 del(rec)
 
-# The namespace should now only comtain patched AST nodes, making
+# The namespace should now only contain patched AST nodes, making
 # from nodes import *
 # a safe operation
